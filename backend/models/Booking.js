@@ -44,7 +44,7 @@ const bookingSchema = new mongoose.Schema({
   ],
   paymentStatus: {
     type: String,
-    enum: ['pending', 'paid'],
+    enum: ['pending', 'paid', 'failed', 'refunded'],
     default: 'pending'
   },
   paymentMethod: {
@@ -67,6 +67,28 @@ const bookingSchema = new mongoose.Schema({
   locationCoords: {
     lat: { type: Number },
     lng: { type: Number }
+  },
+  cancelledBy: {
+    type: String,
+    enum: ['user', 'worker', 'admin']
+  },
+  cancellationReason: {
+    type: String,
+    maxLength: 300
+  },
+  cancelledAt: {
+    type: Date
+  },
+  refundAmount: {
+    type: Number
+  },
+  refundId: {
+    type: String
+  },
+  refundStatus: {
+    type: String,
+    enum: ['none', 'processing', 'processed', 'failed'],
+    default: 'none'
   }
 }, {
   timestamps: true

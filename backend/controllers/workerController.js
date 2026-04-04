@@ -63,7 +63,6 @@ const updateWorkerProfile = async (req, res) => {
       name: req.body.name.trim(),
       phone: req.body.phone.trim(),
       location: req.body.location.trim(),
-      hourlyRate: req.body.hourlyRate ? Math.max(0, parseFloat(req.body.hourlyRate)) : 0,
       serviceCharge: req.body.serviceCharge ? Math.max(0, parseFloat(req.body.serviceCharge)) : 0
     };
 
@@ -153,9 +152,8 @@ const updateWorkerProfile = async (req, res) => {
       email: worker.email,
       phone: worker.phone,
       location: worker.location,
-      skills: worker.skills,
+      skillRates: worker.skillRates,
       isAvailable: worker.isAvailable,
-      hourlyRate: worker.hourlyRate,
       serviceCharge: worker.serviceCharge,
       profileImage: worker.profileImage,
       role: worker.role
@@ -407,6 +405,97 @@ const getWorkersByCategory = async (req, res) => {
   }
 };
 
+const getSkillPricing = async (req, res) => {
+  try {
+    const worker = await User.findById(req.user._id).select('-password');
+    if (!worker) return res.status(404).json({ message: 'Worker not found' });
+
+    // Determine which skills in skillRates/skillPricing have no pricing set yet
+    const allSkills = (worker.skillRates || []).map(s => s.skillName);
+    const pricedSkills = new Set(
+      (worker.skillPricing || []).map(sp => sp.skill.toLowerCase())
+    );
+    const unpricedSkills = allSkills.filter(
+      s => !pricedSkills.has(s.toLowerCase())
+    );
+
+    res.status(200).json({
+      skillPricing: worker.skillPricing || [],
+      unpricedSkills
+    });
+  } catch (error) {
+    console.error('getSkillPricing error:', error.message);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+const updateSkillPricing = async (req, res) => {
+  try {
+    const { skillPricing } = req.body;
+
+    if (!Array.isArray(skillPricing)) {
+      return res.status(400).json({ message: 'skillPricing must be an array' });
+    }
+
+    const worker = await User.findById(req.user._id).select('-password');
+    if (!worker) return res.status(404).json({ message: 'Worker not found' });
+
+    // Build the set of valid skill names from the worker's skillRates
+    const validSkills = new Set(
+      (worker.skillRates || []).map(s => s.skillName.toLowerCase())
+    );
+
+    // Validate each entry and normalise values
+    const validated = [];
+    for (const entry of skillPricing) {
+      if (!entry.skill || entry.skill.trim() === '') {
+        return res.status(400).json({ message: 'Each skillPricing entry must have a skill name' });
+      }
+      if (!validSkills.has(entry.skill.toLowerCase())) {
+        return res.status(400).json({
+          message: `Skill "${entry.skill}" is not in your registered skills list`
+        });
+      }
+      validated.push({
+        skill: entry.skill.trim(),
+        rate: Math.max(0, parseFloat(entry.rate) || 0),
+        rateType: ['fixed', 'hourly'].includes(entry.rateType) ? entry.rateType : 'fixed',
+        estimatedDuration: Math.max(15, parseInt(entry.estimatedDuration) || 60),
+        isActive: Boolean(entry.isActive)
+      });
+    }
+
+    // Auto-create placeholder entries for skills that have no pricing yet
+    const pricedSkillNames = new Set(validated.map(e => e.skill.toLowerCase()));
+    for (const s of worker.skillRates || []) {
+      if (!pricedSkillNames.has(s.skillName.toLowerCase())) {
+        validated.push({
+          skill: s.skillName,
+          rate: 0,
+          rateType: 'fixed',
+          estimatedDuration: 60,
+          isActive: false
+        });
+      }
+    }
+
+    worker.skillPricing = validated;
+    await worker.save();
+
+    const updated = worker.toObject();
+    delete updated.password;
+
+    res.status(200).json(updated);
+  } catch (error) {
+    console.error('updateSkillPricing error:', error.message);
+    if (error.name === 'ValidationError') {
+      const messages = Object.values(error.errors).map(e => e.message);
+      return res.status(400).json({ message: 'Validation error', errors: messages });
+    }
+    res.status(500).json({ message: error.message });
+  }
+};
+
 module.exports = {
   getWorkerProfile,
   updateWorkerProfile,
@@ -417,5 +506,7 @@ module.exports = {
   startService,
   completeBooking,
   getWorkerEarnings,
-  getWorkersByCategory
+  getWorkersByCategory,
+  getSkillPricing,
+  updateSkillPricing
 };

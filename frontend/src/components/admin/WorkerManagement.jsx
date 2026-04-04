@@ -34,7 +34,7 @@ const EditWorkerModal = ({ worker, isOpen, onClose, onSave }) => {
               type="text"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
               required
             />
           </div>
@@ -44,7 +44,7 @@ const EditWorkerModal = ({ worker, isOpen, onClose, onSave }) => {
               type="email"
               value={formData.email}
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
               required
             />
           </div>
@@ -54,7 +54,7 @@ const EditWorkerModal = ({ worker, isOpen, onClose, onSave }) => {
               type="tel"
               value={formData.phone}
               onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
             />
           </div>
           <div>
@@ -63,7 +63,7 @@ const EditWorkerModal = ({ worker, isOpen, onClose, onSave }) => {
               type="text"
               value={formData.location}
               onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
             />
           </div>
           <div>
@@ -72,7 +72,7 @@ const EditWorkerModal = ({ worker, isOpen, onClose, onSave }) => {
               type="text"
               value={formData.skills}
               onChange={(e) => setFormData({ ...formData, skills: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
               placeholder="e.g. Plumbing, Electrical, Carpentry"
             />
           </div>
@@ -82,7 +82,7 @@ const EditWorkerModal = ({ worker, isOpen, onClose, onSave }) => {
               id="isAvailable"
               checked={formData.isAvailable}
               onChange={(e) => setFormData({ ...formData, isAvailable: e.target.checked })}
-              className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+              className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
             />
             <label htmlFor="isAvailable" className="ml-2 block text-sm text-gray-900">
               Available for work
@@ -98,7 +98,7 @@ const EditWorkerModal = ({ worker, isOpen, onClose, onSave }) => {
             </button>
             <button
               type="submit"
-              className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+              className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
             >
               Save Changes
             </button>
@@ -133,7 +133,7 @@ const SendMessageModal = ({ worker, isOpen, onClose, onSend }) => {
             <textarea
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
               rows={4}
               placeholder="Type your message here..."
               required
@@ -149,7 +149,7 @@ const SendMessageModal = ({ worker, isOpen, onClose, onSend }) => {
             </button>
             <button
               type="submit"
-              className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+              className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
             >
               Send Message
             </button>
@@ -307,7 +307,7 @@ const WorkerManagement = () => {
     return (
       <div className="flex justify-center items-center min-h-screen bg-gray-50">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-purple-600 mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-indigo-600 mx-auto mb-4"></div>
           <p className="text-gray-600 font-medium">Loading workers...</p>
         </div>
       </div>
@@ -335,14 +335,14 @@ const WorkerManagement = () => {
                     setSearchTerm(e.target.value);
                     setCurrentIndex(0);
                   }}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                 />
               </div>
               <div className="flex gap-2">
                 <button
                   onClick={() => { setFilterStatus('all'); setCurrentIndex(0); }}
                   className={`px-4 py-2 rounded-lg font-medium transition-colors ${filterStatus === 'all'
-                    ? 'bg-purple-600 text-white'
+                    ? 'bg-indigo-600 text-white'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                     }`}
                 >
@@ -414,14 +414,14 @@ const WorkerManagement = () => {
                   setSearchTerm(e.target.value);
                   setCurrentIndex(0);
                 }}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
               />
             </div>
             <div className="flex gap-2">
               <button
                 onClick={() => { setFilterStatus('all'); setCurrentIndex(0); }}
                 className={`px-4 py-2 rounded-lg font-medium transition-colors ${filterStatus === 'all'
-                  ? 'bg-purple-600 text-white'
+                  ? 'bg-indigo-600 text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                   }`}
               >
@@ -466,7 +466,7 @@ const WorkerManagement = () => {
             disabled={currentIndex === 0}
             className={`absolute left-0 top-1/2 -translate-y-1/2 -translate-x-16 z-10 w-12 h-12 rounded-full bg-white shadow-lg flex items-center justify-center transition-all ${currentIndex === 0
               ? 'opacity-30 cursor-not-allowed'
-              : 'hover:bg-purple-50 hover:shadow-xl hover:scale-110'
+              : 'hover:bg-indigo-50 hover:shadow-xl hover:scale-110'
               }`}
           >
             <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -480,7 +480,7 @@ const WorkerManagement = () => {
             disabled={currentIndex === filteredWorkers.length - 1}
             className={`absolute right-0 top-1/2 -translate-y-1/2 translate-x-16 z-10 w-12 h-12 rounded-full bg-white shadow-lg flex items-center justify-center transition-all ${currentIndex === filteredWorkers.length - 1
               ? 'opacity-30 cursor-not-allowed'
-              : 'hover:bg-purple-50 hover:shadow-xl hover:scale-110'
+              : 'hover:bg-indigo-50 hover:shadow-xl hover:scale-110'
               }`}
           >
             <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -491,7 +491,7 @@ const WorkerManagement = () => {
           {/* Worker Profile Card */}
           <div className="bg-white rounded-3xl shadow-lg overflow-hidden">
             {/* Header with Gradient */}
-            <div className="bg-gradient-to-r from-purple-500 to-purple-700 px-8 py-10">
+            <div className="bg-gradient-to-r from-indigo-500 to-indigo-700 px-8 py-10">
               <div className="flex items-center gap-6">
                 <div className="w-20 h-20 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center text-white font-bold text-2xl border-2 border-white/30 overflow-hidden">
                   {currentWorker.profileImage ? (
@@ -510,7 +510,7 @@ const WorkerManagement = () => {
                 </div>
                 <div className="flex-1">
                   <h2 className="text-3xl font-bold text-white mb-2">{currentWorker.name}</h2>
-                  <div className="flex items-center text-purple-100">
+                  <div className="flex items-center text-indigo-100">
                     <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                     </svg>
@@ -552,8 +552,8 @@ const WorkerManagement = () => {
               </div>
 
               <div className="bg-white rounded-2xl p-6 text-center shadow-sm">
-                <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center mx-auto mb-3">
-                  <svg className="w-6 h-6 text-purple-600" fill="currentColor" viewBox="0 0 20 20">
+                <div className="w-12 h-12 bg-indigo-100 rounded-xl flex items-center justify-center mx-auto mb-3">
+                  <svg className="w-6 h-6 text-indigo-600" fill="currentColor" viewBox="0 0 20 20">
                     <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                   </svg>
                 </div>
@@ -599,9 +599,9 @@ const WorkerManagement = () => {
                 </div>
 
                 {/* Location */}
-                <div className="flex items-start gap-4 p-5 bg-purple-50 rounded-2xl">
-                  <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center flex-shrink-0">
-                    <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="flex items-start gap-4 p-5 bg-indigo-50 rounded-2xl">
+                  <div className="w-12 h-12 bg-indigo-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                    <svg className="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                     </svg>
@@ -655,7 +655,7 @@ const WorkerManagement = () => {
               <div className="flex gap-3">
                 <button
                   onClick={() => setShowMessageModal(true)}
-                  className="flex-1 px-6 py-3.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-semibold flex items-center justify-center gap-2"
+                  className="flex-1 px-6 py-3.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors font-semibold flex items-center justify-center gap-2"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />

@@ -17,34 +17,37 @@ const getServicePrice = (worker, selectedCategory, service, travelFee = 0) => {
     let estimatedTime = 1;
     let pricingType = "hourly";
 
-    // 2. Core Logic
-    if (skill && skill.rate > 0) {
+    // 2. Core Logic with Number Safety
+    if (skill && (parseFloat(skill.rate) || 0) > 0) {
+        const rate = parseFloat(skill.rate) || 0;
+        const time = parseFloat(skill.estimatedTime) || 1;
+
         if (skill.pricingType === "fixed") {
-            basePrice = skill.rate;
+            basePrice = rate;
             pricingType = "fixed";
-            estimatedTime = skill.estimatedTime || 1;
+            estimatedTime = time;
         } else {
             // "hourly" logic: Total = rate * time
-            basePrice = skill.rate * (skill.estimatedTime || 1);
+            basePrice = rate * time;
             pricingType = "hourly";
-            estimatedTime = skill.estimatedTime || 1;
+            estimatedTime = time;
         }
     } else {
         // 3. Fallback to platform service standard price
-        basePrice = service.price;
+        basePrice = parseFloat(service.price) || 0;
         pricingType = "standard";
-        estimatedTime = service.duration || 1;
+        estimatedTime = parseFloat(service.duration) || 1;
     }
 
-    // 4. Final Total Calculation
-    const total = basePrice + travelFee;
+    // 4. Final Total Calculation (ensure all are numbers)
+    const total = basePrice + (parseFloat(travelFee) || 0);
 
     // 5. Senior Developer Standard Output
     return {
-        basePrice,
+        basePrice: Math.round(basePrice * 100) / 100,
         estimatedTime,
-        travelFee,
-        total,
+        travelFee: Math.round((parseFloat(travelFee) || 0) * 100) / 100,
+        total: Math.round(total * 100) / 100,
         pricingType,
         isCustomRate: !!skill
     };

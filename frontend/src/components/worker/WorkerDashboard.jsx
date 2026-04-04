@@ -4,6 +4,7 @@ import { AuthContext } from '../../context/AuthContext';
 import axios from '../../api/axios';
 import EarningsTracker from './EarningsTracker';
 import Notifications from '../common/Notifications';
+import { useAssistantContext } from '../../context/AssistantContext';
 
 const WorkerDashboard = () => {
   const { user, logout, socket } = useContext(AuthContext);
@@ -18,14 +19,21 @@ const WorkerDashboard = () => {
     avatar: null,
     isOnline: false
   });
+  const { setPageContext } = useAssistantContext();
 
   useEffect(() => {
     if (user?.status === 'approved') {
+      setPageContext({
+        type: 'worker',
+        name: workerProfile.name,
+        skills: workerProfile.role,
+        rate: user?.hourlyRate || 'Assigned per task'
+      });
       fetchData();
     } else {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, workerProfile.name, workerProfile.role, setPageContext]);
 
   const fetchData = async () => {
     try {
@@ -287,14 +295,28 @@ const WorkerDashboard = () => {
             </div>
 
             <div className="job-requests-grid">
-              {pendingBookings.slice(0, 2).map((booking, index) => (
+              {pendingBookings.map((booking, index) => {
+                // Calculate time ago
+                const createdAt = new Date(booking.createdAt);
+                const now = new Date();
+                const diffMs = now - createdAt;
+                const diffMins = Math.floor(diffMs / 60000);
+                const diffHours = Math.floor(diffMins / 60);
+                const timeAgo = diffMins < 60 ? `${diffMins} mins ago` : `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+
+                // Calculate urgency based on scheduled time
+                const bookingTime = new Date(`${booking.scheduledDate}T${booking.scheduledTime}`);
+                const timeToService = (bookingTime - now) / (1000 * 60 * 60); // in hours
+                const isUrgent = timeToService < 24;
+
+                return (
                 <div key={booking._id} className="job-request-card">
                   <div className="job-request-header">
-                    <span className={`urgency-badge ${index === 0 ? 'urgent' : 'scheduled'}`}>
-                      {index === 0 ? 'URGENT' : 'SCHEDULED'}
+                    <span className={`urgency-badge ${isUrgent ? 'urgent' : 'scheduled'}`}>
+                      {isUrgent ? 'URGENT' : 'SCHEDULED'}
                     </span>
                     <span className="time-ago">
-                      {index === 0 ? '20 mins ago' : '1 hour ago'}
+                      {timeAgo}
                     </span>
                   </div>
 
@@ -323,7 +345,8 @@ const WorkerDashboard = () => {
                     </button>
                   </div>
                 </div>
-              ))}
+                );
+              })}
 
               {pendingBookings.length === 0 && (
                 <div className="no-requests">
@@ -408,7 +431,7 @@ const WorkerDashboard = () => {
                           <span className="text-sm font-bold text-green-600">✓ Completed</span>
                         )}
 
-                        <button className="icon-btn message-btn" onClick={() => navigate(`/chat/${booking._id}`)}>💬</button>
+                        <button className="icon-btn message-btn" onClick={() => navigate(`/chat/booking/${booking._id}`)}>💬</button>
                       </div>
                     </div>
                   );

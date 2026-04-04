@@ -29,7 +29,7 @@ import EditService from './components/admin/EditService';
 import UserManagement from './components/admin/UserManagement';
 import WorkerManagement from './components/admin/WorkerManagement';
 import BookingManagement from './components/admin/BookingManagement';
-import AdminAnalyticsDashboard from './components/admin/AdminAnalyticsDashboard';
+import AnalyticsDashboard from './components/admin/AnalyticsDashboard';
 import AdminSettings from './components/admin/AdminSettings';
 import NotFound from './pages/NotFound';
 import Support from './pages/Support';
@@ -38,6 +38,7 @@ import GoogleCallback from './pages/GoogleCallback';
 import Chat from './components/common/Chat';
 import Cart from './components/user/Cart';
 import Chatbot from './components/common/Chatbot';
+import { AssistantProvider } from './context/AssistantContext';
 
 import { WebRTCProvider, useWebRTC } from './context/WebRTCContext';
 import IncomingCallAlert from './components/common/IncomingCallAlert';
@@ -48,9 +49,11 @@ function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <WebRTCProvider>
-          <AppContent />
-        </WebRTCProvider>
+        <AssistantProvider>
+          <WebRTCProvider>
+            <AppContent />
+          </WebRTCProvider>
+        </AssistantProvider>
       </AuthProvider>
     </BrowserRouter>
   );
@@ -238,7 +241,7 @@ function AppContent() {
             path="/admin/analytics"
             element={
               <ProtectedRoute allowedRoles={['admin']}>
-                <AdminAnalyticsDashboard />
+                <AnalyticsDashboard />
               </ProtectedRoute>
             }
           />

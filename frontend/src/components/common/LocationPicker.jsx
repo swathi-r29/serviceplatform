@@ -97,23 +97,47 @@ const LocationPicker = ({ onLocationSelect, initialCoords }) => {
     if (!searchText) return;
     setLoading(true);
     try {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchText)}`
-      );
-      const data = await response.json();
+      let currentQuery = searchText;
+      let data = [];
+      let lastTriedText = currentQuery;
+
+      while (currentQuery) {
+        const response = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(currentQuery)}`
+        );
+        data = await response.json();
+        
+        if (data.length > 0) break;
+        
+        // If 0 results, fall back to broader area by dropping the string up to the first comma
+        const parts = currentQuery.split(',');
+        if (parts.length > 1) {
+          currentQuery = parts.slice(1).join(',').trim();
+          lastTriedText = currentQuery;
+        } else {
+          break; // No more commas to split by, stop searching
+        }
+      }
+
       if (data.length > 0) {
         const { lat, lon, display_name } = data[0];
         const newPos = [parseFloat(lat), parseFloat(lon)];
         setPosition(newPos);
-        setAddress(display_name);
+        
+        // While the map centers on the broader resolved location, 
+        // we persist their exact 'searchText' to the database so they don't lose door/street info.
+        setAddress(searchText); 
         onLocationSelect({
           latitude: parseFloat(lat),
           longitude: parseFloat(lon),
-          address: display_name
+          address: searchText
         });
+      } else {
+        alert("We couldn't pinpoint this exact area. Please enter a broader landmark/city, or click directly on the map to pin your location.");
       }
     } catch (error) {
       console.error('Error searching location:', error);
+      alert("Error searching for location. Please verify your connection.");
     }
     setLoading(false);
   };

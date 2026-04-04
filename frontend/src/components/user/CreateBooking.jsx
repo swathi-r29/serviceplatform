@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { FaStar, FaMapMarkerAlt, FaClock, FaCalendarAlt, FaUser, FaCheckCircle, FaInfoCircle, FaShoppingCart, FaPercentage, FaMagic } from 'react-icons/fa';
 import axios from '../../api/axios';
 import LocationPicker from '../common/LocationPicker';
+import { useAssistantContext } from '../../context/AssistantContext';
 
 const CreateBooking = () => {
   const { serviceId } = useParams();
@@ -19,6 +20,8 @@ const CreateBooking = () => {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const { setPageContext } = useAssistantContext();
+  const [cancelMessage, setCancelMessage] = useState('');
 
   const [discountInfo, setDiscountInfo] = useState({ isFirstBooking: false, firstTimeDiscount: 0 });
 
@@ -26,6 +29,27 @@ const CreateBooking = () => {
     fetchService();
     fetchDiscount();
   }, [serviceId]);
+
+  useEffect(() => {
+    if (service) {
+      setPageContext({
+        type: 'booking',
+        service: { name: service.name, price: service.price },
+        worker: null
+      });
+    }
+  }, [service, setPageContext]);
+
+  useEffect(() => {
+    const sw = workersList.find(w => w._id === formData.workerId);
+    if (service && sw) {
+      setPageContext({
+        type: 'booking',
+        service: { name: service.name, price: service.price },
+        worker: { name: sw.name, rating: sw.rating }
+      });
+    }
+  }, [service, formData.workerId, workersList, setPageContext]);
 
   const calculateDistance = (lat1, lon1, lat2, lon2) => {
     if (!lat1 || !lon1 || !lat2 || !lon2) return null;
@@ -77,7 +101,6 @@ const CreateBooking = () => {
       setWorkersList(data);
     } catch (error) {
       console.error('Failed to fetch workers:', error);
-      // Fallback or just show empty state
     }
   };
 
@@ -86,7 +109,6 @@ const CreateBooking = () => {
       const { data } = await axios.get(`/services/${serviceId}`);
       setService(data);
 
-      // If service has specifically assigned workers, use them (filter by approved status)
       if (data.workers && data.workers.length > 0) {
         const assignedApprovedWorkers = data.workers
           .filter(w => w.worker && w.worker.status === 'approved')
@@ -97,11 +119,10 @@ const CreateBooking = () => {
         
         if (assignedApprovedWorkers.length > 0) {
           setWorkersList(assignedApprovedWorkers);
-          return; // Skip category-based fetch if we have assigned workers
+          return;
         }
       }
 
-      // Fallback to category-based matching
       if (data.category) {
         fetchWorkers(data.category);
       }
@@ -133,26 +154,45 @@ const CreateBooking = () => {
     e.preventDefault();
     if (!formData.workerId) {
       setError('Please select a professional to proceed.');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+    if (!formData.scheduledDate || !formData.scheduledTime) {
+      setError('Please select a date and time.');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
 
     setError('');
+    setCancelMessage('');
     setLoading(true);
 
     try {
-      // 1. Create the booking
-      const { data: booking } = await axios.post('/bookings', {
-        serviceId,
-        totalAmount: total, // Use calculated total including travel
-        ...formData
-      });
-
-      // 2. Create Razorpay order
+      // ── Step 1: Create Razorpay order (NO booking in DB yet) ──
       const { data: orderData } = await axios.post('/payment/create-order', {
-        bookingId: booking._id
+        serviceId,
+        workerId: formData.workerId,
+        scheduledDate: formData.scheduledDate,
+        scheduledTime: formData.scheduledTime,
+        address: formData.address,
+        locationCoords: formData.locationCoords,
+        notes: formData.notes,
+        totalAmount: total
       });
 
-      // 3. Open Razorpay Checkout
+      // Capture booking details now — they must be in scope for the Razorpay handlers
+      const bookingDetails = {
+        serviceId,
+        workerId: formData.workerId,
+        scheduledDate: formData.scheduledDate,
+        scheduledTime: formData.scheduledTime,
+        address: formData.address,
+        locationCoords: formData.locationCoords,
+        notes: formData.notes,
+        totalAmount: total
+      };
+
+      // ── Step 2: Open Razorpay modal ──
       const options = {
         key: orderData.keyId,
         amount: orderData.amount,
@@ -161,23 +201,33 @@ const CreateBooking = () => {
         description: `Booking for ${service.name}`,
         order_id: orderData.orderId,
         handler: async (response) => {
+          // ── Step 3 (success): Verify signature + create booking atomically ──
           try {
             setLoading(true);
-            // 4. Verify Payment
-            await axios.post('/payment/verify', {
+            setCancelMessage('');
+            const { data } = await axios.post('/payment/verify-and-create', {
               razorpay_order_id: response.razorpay_order_id,
               razorpay_payment_id: response.razorpay_payment_id,
               razorpay_signature: response.razorpay_signature,
-              bookingId: booking._id
+              bookingDetails
             });
-            navigate('/user/bookings');
+            if (data.success) {
+              navigate('/user/bookings');
+            } else {
+              setError('Booking could not be confirmed after payment. Please contact support.');
+              setLoading(false);
+            }
           } catch (err) {
-            setError('Payment verification failed. Please contact support.');
+            setError(
+              err.response?.data?.message ||
+              'Payment was received but booking confirmation failed. Please contact support with your payment ID: ' +
+              response.razorpay_payment_id
+            );
             setLoading(false);
           }
         },
         prefill: {
-          name: '', // Will be filled by Razorpay if user is logged in or provided
+          name: '',
           email: '',
           contact: ''
         },
@@ -186,18 +236,19 @@ const CreateBooking = () => {
         },
         modal: {
           ondismiss: () => {
+            // ── Step 3 (cancelled): Stay on page, no booking was created ──
             setLoading(false);
-            // Optionally redirect to bookings page even if payment cancelled
-            // as the booking is already created with 'pending' payment status
-            navigate('/user/bookings');
+            setCancelMessage('Payment cancelled. Your booking was not confirmed.');
+            // DO NOT navigate — no record exists in DB
           }
         }
       };
 
       const rzp = new window.Razorpay(options);
       rzp.open();
+      // Don't setLoading(false) here — keep spinner until handler or ondismiss fires
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to initiate booking');
+      setError(err.response?.data?.message || 'Failed to initiate payment. Please try again.');
       setLoading(false);
     }
   };
@@ -208,7 +259,14 @@ const CreateBooking = () => {
       return;
     }
 
+    // TODO: Cart checkout must also use payment-first flow
+    // when CartCheckout.jsx is built. Do not create booking
+    // records from cart until payment is verified.
+    // The current cart stores intent only — booking is created
+    // only once /payment/verify-and-create succeeds.
+
     setError('');
+    setCancelMessage('');
     setLoading(true);
 
     try {
@@ -216,7 +274,6 @@ const CreateBooking = () => {
         serviceId,
         ...formData
       });
-      // Optionally show a success message or navigate to cart
       navigate('/user/cart');
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to add to cart');
@@ -309,7 +366,14 @@ const CreateBooking = () => {
 
   // ✅ Derived values for pricing breakdown scope
   const selectedWorker = workersList.find(w => w._id === formData.workerId);
-  const hasCustomRate = selectedWorker?.serviceCharge || selectedWorker?.hourlyRate;
+  // Check if the selected worker has a custom skill-based or legacy rate
+  const hasCustomRate = (() => {
+    if (!selectedWorker) return false;
+    const sp = selectedWorker.skillPricing?.find(
+      e => e.skill?.toLowerCase() === service.category?.toLowerCase() && e.isActive
+    );
+    return !!(sp?.rate || selectedWorker.serviceSpecificPrice || selectedWorker.serviceCharge);
+  })();
 
   // Calculate potential savings (compared to most expensive option)
   const maxTotal = sortedWorkers.length > 1 
@@ -413,8 +477,18 @@ const CreateBooking = () => {
                       worker.coordinates?.lat, worker.coordinates?.lng
                     );
                     const travelFee = getTravelFee(distance);
-                    const workerCharge = worker.serviceSpecificPrice || worker.serviceCharge || worker.hourlyRate || service.price;
-                    const hasCustomRate = worker.serviceSpecificPrice || worker.serviceCharge || worker.hourlyRate;
+
+                    // --- skillPricing-aware charge resolution ---
+                    const skillEntry = worker.skillPricing?.find(
+                      sp => sp.skill?.toLowerCase() === service.category?.toLowerCase() && sp.isActive
+                    );
+                    const workerCharge = skillEntry?.rate
+                      || worker.serviceSpecificPrice
+                      || worker.serviceCharge
+                      || service.price;
+                    const rateType = skillEntry?.rateType || 'fixed';
+                    const estDuration = skillEntry?.estimatedDuration; // in minutes
+                    const hasCustomRate = !!(skillEntry?.rate || worker.serviceSpecificPrice || worker.serviceCharge);
 
                     return (
                       <div
@@ -466,7 +540,18 @@ const CreateBooking = () => {
                             <div className="mt-3 pt-3 border-t border-gray-100 grid grid-cols-3 gap-2 text-[10px] font-bold uppercase tracking-tighter">
                               <div className="text-gray-500">
                                 <p className="opacity-50">Service</p>
-                                <p className="text-gray-900">₹{workerCharge}</p>
+                                <p className="text-gray-900 flex items-center gap-1">
+                                  ₹{workerCharge}
+                                  {/* Rate type badge */}
+                                  {rateType === 'hourly' ? (
+                                    <span className="text-[9px] bg-blue-100 text-blue-600 px-1 rounded font-black">/hr</span>
+                                  ) : (
+                                    <span className="text-[9px] bg-green-100 text-green-600 px-1 rounded font-black">Fixed</span>
+                                  )}
+                                </p>
+                                {rateType === 'hourly' && estDuration && (
+                                  <p className="text-[9px] text-gray-400 font-medium">~{estDuration < 60 ? `${estDuration}m` : `${Math.round(estDuration / 60 * 10) / 10}h`} job</p>
+                                )}
                               </div>
                               <div className="text-gray-500">
                                 <p className="opacity-50">Travel ({distance !== null ? `${distance}km` : '---'})</p>
@@ -664,73 +749,150 @@ const CreateBooking = () => {
                                 {loading ? 'Locating Experts...' : 'Compare Top Nearby Pros'}
                             </button>
                         ) : (
-                            <div className="bg-white rounded-3xl border border-indigo-100 shadow-2xl p-6 relative overflow-hidden animate-in slide-in-bottom">
-                                {/* Performance Header */}
-                                <div className="flex items-center justify-between mb-6">
-                                    <div>
-                                        <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-400 mb-1">Expert Match Score</h4>
-                                        <div className="flex items-baseline gap-1">
-                                            <span className="text-4xl font-black text-gray-900">{service.aiAnalysis.smartScore}</span>
-                                            <span className="text-xs font-bold text-gray-400">/ 100</span>
-                                        </div>
-                                    </div>
-                                    <div className="px-4 py-1.5 bg-green-500 text-white rounded-full text-[10px] font-black uppercase tracking-widest shadow-sm">
-                                        Best Choice: {service.aiAnalysis.winner}
-                                    </div>
-                                </div>
+                            (() => {
+                                const ai = service.aiAnalysis;
+                                const sb = ai.scoreBreakdown || {};
+                                return (
+                                <div className="bg-white rounded-3xl border border-indigo-100 shadow-2xl p-6 relative overflow-hidden">
 
-                                {/* Detailed Provider Comparison Table */}
-                                <div className="space-y-3 mb-6">
-                                    {service.aiAnalysis.comparison?.map((prov, idx) => (
-                                        <div key={idx} className={`p-4 rounded-2xl border transition-all ${prov.name === service.aiAnalysis.winner ? 'bg-indigo-50/50 border-indigo-200 ring-1 ring-indigo-100' : 'bg-gray-50 border-gray-100 opacity-80'}`}>
-                                            <div className="flex justify-between items-center mb-3">
-                                                <h5 className="font-bold text-gray-900 text-sm flex items-center gap-2">
-                                                    <div className={`w-2 h-2 rounded-full ${prov.name === service.aiAnalysis.winner ? 'bg-indigo-600' : 'bg-gray-400'}`}></div>
-                                                    {prov.name}
-                                                </h5>
-                                                <span className="text-[10px] font-bold text-gray-400">{prov.distance} away</span>
-                                            </div>
-                                            
-                                            <div className="grid grid-cols-3 gap-2 text-[10px] font-bold uppercase tracking-tighter">
-                                                <div className="text-gray-500">
-                                                    <p className="mb-0.5 opacity-60">Service</p>
-                                                    <p className="text-gray-900">{prov.charge}</p>
-                                                </div>
-                                                <div className="text-gray-500">
-                                                    <p className="mb-0.5 opacity-60">Travel</p>
-                                                    <p className="text-indigo-600">{prov.travel}</p>
-                                                </div>
-                                                <div className="text-right">
-                                                    <p className="mb-0.5 opacity-60">Total</p>
-                                                    <p className="text-gray-900 text-xs font-black">{prov.total}</p>
-                                                </div>
+                                    {/* ── Header: Score + Winner badge ── */}
+                                    <div className="flex items-center justify-between mb-5">
+                                        <div>
+                                            <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-400 mb-1">Expert Match Score</h4>
+                                            <div className="flex items-baseline gap-1">
+                                                <span className="text-4xl font-black text-gray-900">
+                                                    {ai.matchScore ?? ai.smartScore ?? '—'}
+                                                </span>
+                                                <span className="text-xs font-bold text-gray-400">/ 100</span>
                                             </div>
                                         </div>
-                                    ))}
-                                </div>
-
-                                {/* Smart Insight Box */}
-                                <div className="bg-slate-900 rounded-2xl p-4 text-white/90 relative group">
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <div className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse"></div>
-                                        <span className="text-[10px] font-bold text-blue-400 uppercase tracking-widest italic leading-none">Smart Efficiency Intel</span>
+                                        <div className="px-4 py-1.5 bg-green-500 text-white rounded-full text-[10px] font-black uppercase tracking-widest shadow-sm">
+                                            Best Choice: {ai.winner}
+                                        </div>
                                     </div>
-                                    <p className="text-[11px] leading-relaxed font-medium italic">
-                                        "{service.aiAnalysis.reasoning} {service.aiAnalysis.savingsDetail}"
-                                    </p>
-                                </div>
 
-                                <button 
-                                    onClick={() => setService(prev => ({ ...prev, aiAnalysis: null }))}
-                                    className="w-full mt-4 text-[10px] font-bold text-gray-300 hover:text-indigo-600 transition-colors uppercase tracking-widest text-center"
-                                >
-                                    Reset Matcher
-                                </button>
-                                
-                                {/* Aesthetic background blur */}
-                                <div className="absolute top-[-20px] right-[-20px] w-24 h-24 bg-blue-400/10 blur-3xl rounded-full"></div>
-                                <div className="absolute bottom-[-20px] left-[-20px] w-24 h-24 bg-indigo-400/10 blur-3xl rounded-full"></div>
-                            </div>
+                                    {/* ── Score Breakdown Bars ── */}
+                                    {ai.scoreBreakdown && (
+                                        <div className="mb-5 space-y-2.5">
+                                            {/* Collapsible "How is this calculated?" */}
+                                            <details className="group">
+                                                <summary className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider cursor-pointer select-none list-none flex items-center gap-1 mb-3">
+                                                    <span>How is this score calculated?</span>
+                                                    <span className="group-open:rotate-180 transition-transform inline-block">▾</span>
+                                                </summary>
+                                                <p className="text-[10px] text-gray-500 leading-relaxed mb-3 pl-1 border-l-2 border-indigo-100">
+                                                    Price competitiveness (35pts) + Proximity (30pts) + Rating (25pts) + Rate type (10pts) = 100pts total
+                                                </p>
+                                            </details>
+
+                                            {/* Price bar */}
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-[10px] font-bold text-gray-500 w-20 shrink-0">Price</span>
+                                                <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                                                    <div
+                                                        className="h-full bg-green-500 rounded-full transition-all duration-700"
+                                                        style={{ width: `${Math.round((sb.priceScore / 35) * 100)}%` }}
+                                                    />
+                                                </div>
+                                                <span className="text-[10px] font-black text-gray-700 w-10 text-right">{sb.priceScore}/35</span>
+                                            </div>
+                                            {/* Proximity bar */}
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-[10px] font-bold text-gray-500 w-20 shrink-0">Proximity</span>
+                                                <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                                                    <div
+                                                        className="h-full bg-blue-500 rounded-full transition-all duration-700"
+                                                        style={{ width: `${Math.round((sb.proximityScore / 30) * 100)}%` }}
+                                                    />
+                                                </div>
+                                                <span className="text-[10px] font-black text-gray-700 w-10 text-right">{sb.proximityScore}/30</span>
+                                            </div>
+                                            {/* Rating bar */}
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-[10px] font-bold text-gray-500 w-20 shrink-0">Rating</span>
+                                                <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                                                    <div
+                                                        className="h-full bg-yellow-400 rounded-full transition-all duration-700"
+                                                        style={{ width: `${Math.round((sb.ratingScore / 25) * 100)}%` }}
+                                                    />
+                                                </div>
+                                                <span className="text-[10px] font-black text-gray-700 w-10 text-right">{sb.ratingScore}/25</span>
+                                            </div>
+                                            {/* Rate type bar */}
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-[10px] font-bold text-gray-500 w-20 shrink-0">Rate Type</span>
+                                                <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                                                    <div
+                                                        className="h-full bg-purple-500 rounded-full transition-all duration-700"
+                                                        style={{ width: `${Math.round((sb.rateTypeBonus / 10) * 100)}%` }}
+                                                    />
+                                                </div>
+                                                <span className="text-[10px] font-black text-gray-700 w-10 text-right">{sb.rateTypeBonus}/10</span>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* ── Per-Provider Comparison Cards ── */}
+                                    <div className="space-y-3 mb-5">
+                                        {ai.comparison?.map((prov, idx) => (
+                                            <div key={idx} className={`p-4 rounded-2xl border transition-all ${prov.name === ai.winner ? 'bg-indigo-50/50 border-indigo-200 ring-1 ring-indigo-100' : 'bg-gray-50 border-gray-100 opacity-80'}`}>
+                                                <div className="flex justify-between items-center mb-3">
+                                                    <h5 className="font-bold text-gray-900 text-sm flex items-center gap-2">
+                                                        <div className={`w-2 h-2 rounded-full ${prov.name === ai.winner ? 'bg-indigo-600' : 'bg-gray-400'}`} />
+                                                        {prov.name}
+                                                    </h5>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-[10px] font-bold text-gray-400">{prov.distance} away</span>
+                                                        {prov.matchScore !== undefined && (
+                                                            <span className={`text-[9px] font-black px-2 py-0.5 rounded-full ${prov.name === ai.winner ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-600'}`}>
+                                                                Score: {prov.matchScore}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
+
+                                                <div className="grid grid-cols-3 gap-2 text-[10px] font-bold uppercase tracking-tighter">
+                                                    <div className="text-gray-500">
+                                                        <p className="mb-0.5 opacity-60">Service</p>
+                                                        <p className="text-gray-900">{prov.charge}</p>
+                                                    </div>
+                                                    <div className="text-gray-500">
+                                                        <p className="mb-0.5 opacity-60">Travel</p>
+                                                        <p className="text-indigo-600">{prov.travel}</p>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <p className="mb-0.5 opacity-60">Total</p>
+                                                        <p className="text-gray-900 text-xs font-black">{prov.total}</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    {/* ── Smart Efficiency Intel (dark box) ── */}
+                                    <div className="bg-slate-900 rounded-2xl p-4 text-white/90 relative group">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <div className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
+                                            <span className="text-[10px] font-bold text-blue-400 uppercase tracking-widest italic leading-none">Smart Efficiency Intel</span>
+                                        </div>
+                                        <p className="text-[11px] leading-relaxed font-medium italic">
+                                            "{ai.reasoning} {ai.savingsDetail}"
+                                        </p>
+                                    </div>
+
+                                    <button
+                                        onClick={() => setService(prev => ({ ...prev, aiAnalysis: null }))}
+                                        className="w-full mt-4 text-[10px] font-bold text-gray-300 hover:text-indigo-600 transition-colors uppercase tracking-widest text-center"
+                                    >
+                                        Reset Matcher
+                                    </button>
+
+                                    {/* Aesthetic background blur */}
+                                    <div className="absolute top-[-20px] right-[-20px] w-24 h-24 bg-blue-400/10 blur-3xl rounded-full" />
+                                    <div className="absolute bottom-[-20px] left-[-20px] w-24 h-24 bg-indigo-400/10 blur-3xl rounded-full" />
+                                </div>
+                                );
+                            })()
                         )}
                     </div>
 
@@ -746,6 +908,17 @@ const CreateBooking = () => {
                       Add to Cart
                     </button>
 
+                    <div className="bg-yellow-50 border border-yellow-200 p-3 rounded-xl mb-4">
+                      <p className="text-xs text-yellow-800 font-bold flex items-center gap-2">
+                        <FaInfoCircle className="text-yellow-600 shrink-0" />
+                        DEVELOPER TEST MODE TIP:
+                      </p>
+                      <p className="text-[10px] text-yellow-700 mt-1">
+                        When the Razorpay modal opens, <b>DO NOT</b> use dummy credit cards as they trigger International Card locks. 
+                        Instead, select <b>UPI</b> and type <code className="bg-white px-1 py-0.5 rounded text-blue-600 font-black">success@razorpay</code> to simulate a successful payment!
+                      </p>
+                    </div>
+
                     <button
                       type="submit"
                       disabled={loading}
@@ -758,6 +931,12 @@ const CreateBooking = () => {
                   <p className="text-xs text-center text-gray-400 mt-4">
                     By booking, you agree to our Terms of Service.
                   </p>
+
+                  {cancelMessage && (
+                    <p className="text-sm text-amber-600 text-center mt-2 bg-amber-50 p-2 rounded-lg border border-amber-100">
+                      {cancelMessage}
+                    </p>
+                  )}
                 </form>
               </div>
             </div>

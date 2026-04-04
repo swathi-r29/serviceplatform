@@ -39,24 +39,39 @@ const userSchema = new mongoose.Schema({
   profileImage: { type: String, default: '' },
   skillRates: [
     {
-      skillName: {
+      skillName: { type: String, required: true },
+      rate: { type: Number, required: true, min: 0 },
+      estimatedTime: { type: Number, default: 1, min: 0.1 }, // in hours
+      pricingType: { type: String, enum: ["hourly", "fixed"], default: "hourly" }
+    }
+  ],
+  // --- Per-Skill Pricing (new authoritative system) ---
+  skillPricing: [
+    {
+      skill: {
         type: String,
-        required: true
+        required: true,
+        trim: true
       },
       rate: {
         type: Number,
         required: true,
-        min: 0
+        min: 0,
+        default: 0
       },
-      estimatedTime: {
-        type: Number,   // in hours
-        default: 1,
-        min: 0.1
-      },
-      pricingType: {
+      rateType: {
         type: String,
-        enum: ["hourly", "fixed"],
-        default: "hourly"
+        enum: ['fixed', 'hourly'],
+        default: 'fixed'
+      },
+      estimatedDuration: {
+        type: Number, // in minutes
+        default: 60,
+        min: 15
+      },
+      isActive: {
+        type: Boolean,
+        default: false
       }
     }
   ],
@@ -76,6 +91,8 @@ const userSchema = new mongoose.Schema({
   rating: { type: Number, default: 0 },
   reviewCount: { type: Number, default: 0 },
   isVerified: { type: Boolean, default: true },
+  cancellationCount: { type: Number, default: 0 },
+  // --- Deprecated global rates (kept as fallback) ---
   hourlyRate: { type: Number, min: 0, default: 0 },
   serviceCharge: { type: Number, min: 0, default: 0 },
   otp: { type: String },
@@ -107,6 +124,29 @@ userSchema.methods.matchPassword = async function (enteredPassword) {
     console.error('Error comparing passwords:', error);
     return false;
   }
+};
+
+/**
+ * Returns the skillPricing entry for a given skill name.
+ * Falls back to the deprecated global rates if no active per-skill entry found.
+ * @param {string} skillName
+ * @returns {{ rate: number, rateType: string, estimatedDuration: number, isActive: boolean }}
+ */
+userSchema.methods.getPricingForSkill = function (skillName) {
+  const entry = this.skillPricing?.find(
+    sp => sp.skill.toLowerCase() === skillName.toLowerCase() && sp.isActive
+  );
+  if (entry) return entry;
+
+  // Fallback to deprecated global rates
+  const fallbackRate = this.serviceCharge || this.hourlyRate || 0;
+  return {
+    skill: skillName,
+    rate: fallbackRate,
+    rateType: 'fixed',
+    estimatedDuration: 60,
+    isActive: false
+  };
 };
 
 module.exports = mongoose.model('User', userSchema);

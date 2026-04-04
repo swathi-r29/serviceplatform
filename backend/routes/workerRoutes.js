@@ -8,7 +8,9 @@ const {
   startTravel,
   startService,
   completeBooking,
-  getWorkerEarnings
+  getWorkerEarnings,
+  getSkillPricing,
+  updateSkillPricing
 } = require('../controllers/workerController');
 const { protect } = require('../middleware/auth');
 const { checkRole } = require('../middleware/roleCheck');
@@ -27,5 +29,7 @@ router.put('/bookings/:id/start-travel', startTravel);
 router.put('/bookings/:id/start-service', startService);
 router.put('/bookings/:id/complete', completeBooking);
 router.get('/earnings', getWorkerEarnings);
+router.get('/skill-pricing', getSkillPricing);
+router.put('/skill-pricing', updateSkillPricing);
 
 module.exports = router;

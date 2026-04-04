@@ -68,8 +68,116 @@ io.on('connection', (socket) => {
   });
 });
 
+// ── /tracking namespace — real-time worker location ──────────────────────────
+const trackingNS = io.of('/tracking');
+
+// Debounce: only write coords to DB every 10th ping per booking
+const pingCountMap = new Map(); // bookingId → count
+
+trackingNS.on('connection', (socket) => {
+  console.log('[tracking] socket connected:', socket.id);
+
+  // ── WORKER: start broadcasting for a booking ─────────────────────────────
+  socket.on('worker:start-tracking', ({ bookingId, workerId }) => {
+    if (!bookingId) return;
+    const room = `tracking:${bookingId}`;
+    socket.join(room);
+    socket.trackingBookingId = bookingId;
+    socket.trackingWorkerId  = workerId;
+    socket.emit('tracking:started', { bookingId });
+    console.log(`[tracking] worker ${workerId} started on booking ${bookingId}`);
+  });
+
+  // ── WORKER: location ping ─────────────────────────────────────────────────
+  socket.on('worker:location-update', async ({ bookingId, lat, lng, heading }) => {
+    if (!bookingId || lat == null || lng == null) return;
+    const room = `tracking:${bookingId}`;
+
+    // Broadcast to all watchers in the room (including sender is fine)
+    trackingNS.to(room).emit('location:updated', {
+      lat, lng,
+      heading: heading ?? null,
+      timestamp: new Date().toISOString()
+    });
+
+    // Debounce: update DB every 10th ping
+    const count = (pingCountMap.get(bookingId) || 0) + 1;
+    pingCountMap.set(bookingId, count);
+
+    if (count % 10 === 0) {
+      try {
+        const User = require('./models/User');
+        const Booking = require('./models/Booking');
+        const bk = await Booking.findById(bookingId).select('worker');
+        if (bk?.worker) {
+          await User.findByIdAndUpdate(bk.worker, {
+            'coordinates.lat': lat,
+            'coordinates.lng': lng
+          });
+        }
+      } catch (err) {
+        console.error('[tracking] DB coordinate update failed:', err.message);
+      }
+    }
+  });
+
+  // ── WORKER: stop broadcasting ─────────────────────────────────────────────
+  socket.on('worker:stop-tracking', ({ bookingId }) => {
+    if (!bookingId) return;
+    const room = `tracking:${bookingId}`;
+    trackingNS.to(room).emit('tracking:stopped', { bookingId });
+    socket.leave(room);
+    pingCountMap.delete(bookingId);
+    console.log(`[tracking] worker stopped tracking booking ${bookingId}`);
+  });
+
+  // ── USER: subscribe to a booking's location feed ──────────────────────────
+  socket.on('user:watch-booking', async ({ bookingId, userId }) => {
+    if (!bookingId) return;
+    try {
+      const Booking = require('./models/Booking');
+      const bk = await Booking.findById(bookingId)
+        .select('user worker locationCoords')
+        .populate('worker', 'coordinates');
+
+      // Validate ownership
+      if (!bk || bk.user.toString() !== userId) {
+        socket.emit('tracking:error', { message: 'Not authorized to watch this booking' });
+        return;
+      }
+
+      socket.join(`tracking:${bookingId}`);
+
+      // Send last known position immediately if available
+      const coords = bk.worker?.coordinates;
+      if (coords?.lat && coords?.lng) {
+        socket.emit('location:updated', {
+          lat: coords.lat,
+          lng: coords.lng,
+          heading: null,
+          timestamp: new Date().toISOString()
+        });
+      }
+    } catch (err) {
+      console.error('[tracking] user:watch-booking error:', err.message);
+    }
+  });
+
+  // ── Disconnect: notify rooms ──────────────────────────────────────────────
+  socket.on('disconnect', () => {
+    const bookingId = socket.trackingBookingId;
+    if (bookingId) {
+      trackingNS.to(`tracking:${bookingId}`)
+        .emit('tracking:worker-disconnected', { bookingId });
+      pingCountMap.delete(bookingId);
+    }
+    console.log('[tracking] socket disconnected:', socket.id);
+  });
+});
+
 // Make io accessible to routes
 app.set('io', io);
+
 
 // CORS Middleware - BEFORE routes
 app.use(cors({
@@ -111,6 +219,7 @@ app.use('/api/user', require('./routes/userRoutes'));
 app.use('/api/worker', require('./routes/workerRoutes'));
 app.use('/api/worker/earnings', require('./routes/workerEarningsRoutes')); // ✅ ADD HERE
 app.use('/api/admin', require('./routes/adminRoutes'));
+app.use('/api/admin/analytics', require('./routes/adminAnalyticsRoutes'));
 app.use('/api/services', require('./routes/serviceRoutes'));
 app.use('/api/bookings', require('./routes/bookingRoutes'));
 app.use('/api/reviews', require('./routes/reviewRoutes'));
@@ -122,6 +231,7 @@ app.use('/api/availability', require('./routes/availabilityRoutes'));
 app.use('/api/chatbot', require('./routes/chatbotRoutes'));
 app.use('/api/cart', require('./routes/cartRoutes')); // Added cartRoutes
 app.use('/api/ai', require('./routes/aiRoutes')); // Added AI routes (Gemini)
+app.use('/api/cancellation', require('./routes/cancellationRoutes'));
 
 console.log('✅ All routes loaded successfully\n');
 

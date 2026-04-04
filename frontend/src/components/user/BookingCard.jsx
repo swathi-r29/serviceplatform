@@ -2,18 +2,28 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import axios from '../../api/axios';
 import Payment from './Payment';
-import ReviewForm from './ReviewForm';
 import { FaHeart, FaRegHeart } from 'react-icons/fa';
 import LifecycleTimeline from '../common/LifecycleTimeline';
 import { useWebRTC } from '../../context/WebRTCContext';
-import LiveTrackingModal from '../common/LiveTrackingModal';
+import LiveTrackingMap from '../tracking/LiveTrackingMap';
+import CancelBookingModal from '../cancellation/CancelBookingModal';
 
 const BookingCard = ({ booking, onCancel, onRefresh }) => {
   const [showPayment, setShowPayment] = useState(false);
-  const [showReview, setShowReview] = useState(false);
   const [showTracking, setShowTracking] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
   const { startStream, callUser, setIsCallModalOpen } = useWebRTC();
   const [isFavoriteWorker, setIsFavoriteWorker] = useState(false);
+
+  // Decode userId from JWT stored in localStorage for socket auth
+  const userId = (() => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return null;
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      return payload.id || payload._id || null;
+    } catch { return null; }
+  })();
 
   const statusColors = {
     pending: 'bg-yellow-100 text-yellow-800',
@@ -132,6 +142,20 @@ const BookingCard = ({ booking, onCancel, onRefresh }) => {
           {/* Payment Status */}
           <div className="mt-3">
             <p className="text-2xl font-bold text-gray-900">₹{booking.totalAmount}</p>
+            {booking.status === 'cancelled' && booking.refundStatus && booking.refundStatus !== 'none' && (
+              <div className="mt-2 flex flex-col gap-1">
+                <span className={`inline-flex self-start items-center px-2.5 py-1 rounded text-xs font-bold uppercase tracking-wider ${
+                  booking.refundStatus === 'processing' ? 'bg-amber-100 text-amber-800 border border-amber-200' :
+                  booking.refundStatus === 'processed' ? 'bg-green-100 text-green-800 border border-green-200' :
+                  'bg-red-100 text-red-800 border border-red-200'
+                }`}>
+                  {booking.refundStatus === 'processing' ? 'Refund Processing' :
+                   booking.refundStatus === 'processed' ? 'Refund Credited' :
+                   'Refund Failed - Contact Support'}
+                </span>
+                {booking.refundAmount > 0 && <p className="text-sm font-semibold text-gray-600">₹{booking.refundAmount} refunded</p>}
+              </div>
+            )}
           </div>
         </div>
 
@@ -142,16 +166,14 @@ const BookingCard = ({ booking, onCancel, onRefresh }) => {
 
         {/* Right: Actions */}
         <div className="flex flex-col md:items-end justify-center gap-3 pt-4 md:pt-0 border-t md:border-t-0 md:border-l border-gray-100 md:pl-6 min-w-[180px]">
+          {/* Only show old pay button or Chat/Call if not cancelled or rejected */}
           {['accepted', 'on-the-way', 'in-progress'].includes(booking.status) && (
             <>
               {booking.status === 'on-the-way' && (
-                <button
-                  onClick={() => setShowTracking(true)}
-                  className="w-full px-5 py-2.5 bg-blue-600 text-white text-sm font-bold rounded-lg hover:bg-blue-700 transition shadow-lg flex items-center justify-center gap-2 animate-bounce hover:animate-none"
-                >
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
-                  Track Live
-                </button>
+                <div className="flex items-center gap-1.5 text-xs font-bold text-blue-600 bg-blue-50 px-3 py-1.5 rounded-full border border-blue-100 mb-2">
+                  <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+                  Live Tracking Active
+                </div>
               )}
               <div className="flex gap-2 w-full">
                 <button
@@ -174,34 +196,39 @@ const BookingCard = ({ booking, onCancel, onRefresh }) => {
               </div>
               <button
                 onClick={() => setShowPayment(true)}
-                className="w-full px-5 py-2.5 bg-gray-900 text-white text-sm font-bold rounded-lg hover:bg-black transition shadow-sm"
+                className="w-full px-5 py-2.5 bg-gray-900 text-white text-sm font-bold rounded-lg hover:bg-black transition shadow-sm mt-2"
               >
                 {booking.paymentStatus === 'paid' ? 'View Receipt' : 'Pay Now'}
               </button>
             </>
           )}
 
-          {booking.status === 'pending' && (
+          {/* New Cancellation Button Rule */}
+          {['pending', 'accepted'].includes(booking.status) && booking.paymentStatus === 'paid' && (
+            <button
+              onClick={() => setShowCancelModal(true)}
+              className="w-full px-5 py-2.5 mt-2 bg-white border border-red-200 text-red-600 text-sm font-medium rounded-lg hover:bg-red-50 transition flex items-center justify-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              Cancel Booking
+            </button>
+          )}
+          
+          {/* Fallback for pending but not paid yet (old logic if any exist) */}
+          {booking.status === 'pending' && booking.paymentStatus !== 'paid' && (
             <button
               onClick={() => onCancel(booking._id)}
-              className="w-full px-5 py-2.5 bg-white border border-red-200 text-red-600 text-sm font-medium rounded-lg hover:bg-red-50 transition flex items-center justify-center gap-2"
+              className="w-full px-5 py-2.5 mt-2 bg-white border border-red-200 text-red-600 text-sm font-medium rounded-lg hover:bg-red-50 transition flex items-center justify-center gap-2"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
               Cancel
             </button>
           )}
 
-          {booking.status === 'completed' && (
-            <button
-              onClick={() => setShowReview(true)}
-              className="w-full px-5 py-2.5 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 transition shadow-sm"
-            >
-              Write Review
-            </button>
-          )}
 
-          {(booking.status !== 'pending' && booking.status !== 'accepted' && booking.status !== 'completed') && (
-            <button className="w-full px-5 py-2.5 bg-gray-100 text-gray-400 text-sm font-medium rounded-lg cursor-not-allowed">
+
+          {(booking.status !== 'pending' && booking.status !== 'accepted' && booking.status !== 'completed' && booking.status !== 'cancelled') && (
+            <button className="w-full px-5 py-2.5 mt-2 bg-gray-100 text-gray-400 text-sm font-medium rounded-lg cursor-not-allowed uppercase">
               {booking.status}
             </button>
           )}
@@ -219,27 +246,28 @@ const BookingCard = ({ booking, onCancel, onRefresh }) => {
         />
       )}
 
-      {showReview && (
-        <ReviewForm
+
+
+      {showCancelModal && (
+        <CancelBookingModal
           booking={booking}
-          onClose={() => setShowReview(false)}
-          onSuccess={() => {
-            setShowReview(false);
+          onClose={() => setShowCancelModal(false)}
+          onCancelled={() => {
+            setShowCancelModal(false);
             onRefresh();
           }}
         />
       )}
 
       {showTracking && (
-        <LiveTrackingModal
-          isOpen={showTracking}
-          onClose={() => setShowTracking(false)}
-          bookingId={booking._id}
-          workerName={booking.worker?.name}
+        <LiveTrackingMap
+          booking={booking}
+          workerName={booking.worker?.name || 'Worker'}
+          userId={userId}
         />
       )}
     </>
   );
 };
 
-export default BookingCard;
+export default BookingCard;

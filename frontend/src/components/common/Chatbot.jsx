@@ -60,7 +60,13 @@ const Chatbot = () => {
       const res = await axios.post('http://localhost:5000/api/chatbot/chat', payload, config);
       
       if (res.data.success) {
-        setMessages(prev => [...prev, { role: 'model', content: res.data.response.text }]);
+        setMessages(prev => [...prev, { 
+          role: 'model', 
+          content: res.data.response.text,
+          options: res.data.response.options,
+          categories: res.data.response.categories,
+          showCategories: res.data.response.showCategories
+        }]);
       } else {
         throw new Error('API returned failure');
       }
@@ -107,19 +113,41 @@ const Chatbot = () => {
             {/* Chat Area */}
             <div className="flex-1 p-4 overflow-y-auto bg-gray-50 flex flex-col gap-3">
               {messages.map((msg, idx) => (
-                <div
-                  key={idx}
-                  className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                >
-                  <div
-                    className={`max-w-[85%] rounded-2xl px-4 py-2 text-sm ${
-                      msg.role === 'user'
-                        ? 'bg-amber-600 text-white rounded-br-sm'
-                        : 'bg-white border border-gray-100 shadow-sm text-gray-800 rounded-bl-sm'
-                    }`}
-                  >
-                    {msg.content}
+                <div key={idx} className="flex flex-col">
+                  <div className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} mb-1`}>
+                    <div
+                      className={`max-w-[85%] rounded-2xl px-4 py-2 text-sm ${
+                        msg.role === 'user'
+                          ? 'bg-amber-600 text-white rounded-br-sm'
+                          : 'bg-white border border-gray-100 shadow-sm text-gray-800 rounded-bl-sm'
+                      }`}
+                    >
+                      {msg.content}
+                    </div>
                   </div>
+                  {/* Dynamic Options for this specific message */}
+                  {msg.role === 'model' && (msg.options || (msg.showCategories && msg.categories)) && (
+                    <div className="flex flex-wrap gap-2 mb-3 px-2">
+                      {msg.options?.map((opt, oIdx) => (
+                        <button
+                          key={oIdx}
+                          onClick={() => handleSend(opt)}
+                          className="text-xs bg-white border border-amber-300 text-amber-700 px-3 py-1.5 rounded-full hover:bg-amber-600 hover:text-white transition-all shadow-sm"
+                        >
+                          {opt}
+                        </button>
+                      ))}
+                      {msg.showCategories && msg.categories?.map((cat, cIdx) => (
+                        <button
+                          key={cIdx}
+                          onClick={() => handleSend(cat)}
+                          className="text-xs bg-white border border-amber-300 text-amber-700 px-3 py-1.5 rounded-full hover:bg-amber-600 hover:text-white transition-all shadow-sm"
+                        >
+                          {cat}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ))}
               

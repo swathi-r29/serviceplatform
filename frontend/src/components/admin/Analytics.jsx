@@ -38,7 +38,7 @@ const Analytics = () => {
       <h1 className="text-3xl font-bold mb-8">Analytics Dashboard</h1>
 
       <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white p-6 rounded-lg shadow-lg">
+        <div className="bg-gradient-to-br from-amber-500 to-amber-600 text-white p-6 rounded-lg shadow-lg">
           <h3 className="text-lg font-semibold mb-2">Total Users</h3>
           <p className="text-4xl font-bold">{analytics?.totalUsers || 0}</p>
           <p className="text-sm mt-2 opacity-90">+{analytics?.newUsersThisMonth || 0} this month</p>
@@ -56,7 +56,7 @@ const Analytics = () => {
           <p className="text-sm mt-2 opacity-90">Active: {analytics?.activeServices || 0}</p>
         </div>
 
-        <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white p-6 rounded-lg shadow-lg">
+        <div className="bg-gradient-to-br from-amber-500 to-amber-600 text-white p-6 rounded-lg shadow-lg">
           <h3 className="text-lg font-semibold mb-2">Total Bookings</h3>
           <p className="text-4xl font-bold">{analytics?.totalBookings || 0}</p>
           <p className="text-sm mt-2 opacity-90">+{analytics?.bookingsThisMonth || 0} this month</p>
@@ -88,7 +88,7 @@ const Analytics = () => {
 
         <div className="bg-white p-6 rounded-lg shadow">
           <h3 className="text-xl font-bold mb-4">Total Revenue</h3>
-          <p className="text-3xl font-bold text-blue-600">₹{analytics?.totalRevenue || 0}</p>
+          <p className="text-3xl font-bold text-amber-600">₹{analytics?.totalRevenue || 0}</p>
           <p className="text-sm text-gray-500 mt-2">Avg: ₹{analytics?.averageBookingValue || 0}</p>
         </div>
       </div>
@@ -101,9 +101,9 @@ const Analytics = () => {
               {chartData.dailyRevenue.map((item, index) => (
                 <div key={index} className="flex items-center gap-4">
                   <span className="text-sm text-gray-600 w-20">{item.date}</span>
-                  <div className="flex-1 bg-blue-100 rounded-full h-6">
+                  <div className="flex-1 bg-amber-100 rounded-full h-6">
                     <div 
-                      className="bg-blue-600 h-6 rounded-full flex items-center justify-end pr-2 text-xs text-white font-semibold"
+                      className="bg-amber-600 h-6 rounded-full flex items-center justify-end pr-2 text-xs text-white font-semibold"
                       style={{ width: `${(item.revenue / Math.max(...chartData.dailyRevenue.map(d => d.revenue)) * 100)}%` }}
                     >
                       ₹{item.revenue}
@@ -180,7 +180,7 @@ const Analytics = () => {
                     <p className="text-sm text-gray-500">{worker.rating.toFixed(1)} ⭐ • {worker.reviews} reviews</p>
                   </div>
                   <div className="text-right">
-                    <p className="font-bold text-blue-600">₹{worker.earnings}</p>
+                    <p className="font-bold text-amber-600">₹{worker.earnings}</p>
                     <p className="text-xs text-gray-500">{worker.completedJobs} jobs</p>
                   </div>
                 </div>

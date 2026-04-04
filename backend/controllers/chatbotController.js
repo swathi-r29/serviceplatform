@@ -12,6 +12,87 @@ exports.getChatResponse = async (req, res) => {
     // Convert message to lowercase for easier matching
     const msg = message.toLowerCase();
 
+    // Default response using Gemini
+    if (process.env.GEMINI_API_KEY) {
+      try {
+        const { GoogleGenAI } = require('@google/genai');
+        const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+        
+        let history = [];
+        const ChatHistory = require('../models/ChatHistory');
+        let chatDoc = null;
+
+        // Load history if user authenticated or userId provided
+        const uid = req.user ? req.user._id : req.body.userId;
+        if (uid) {
+          chatDoc = await ChatHistory.findOne({ userId: uid });
+          if (chatDoc) {
+             history = chatDoc.messages.slice(-10).map(m => ({
+               role: m.role,
+               parts: [{ text: m.content }]
+             }));
+          } else {
+             chatDoc = new ChatHistory({ userId: uid, messages: [] });
+          }
+        }
+
+        const systemPrompt = `You are ServiceHub's intelligent assistant. 
+        Help users with booking and general inquiries. Be polite, professional, and helpful.
+        
+        IMPORTANT: Your response must be a valid JSON object with two fields:
+        1. "text": Your helpful response (max 2 paragraphs, use emojis).
+        2. "options": An array of 2-3 short suggested follow-up buttons (max 3 words each).
+        
+        Example: { "text": "I can help with that! 🛠️ What service do you need?", "options": ["Plumbing", "Cleaning", "View Prices"] }`;
+
+        const contents = [
+           { role: 'user', parts: [{ text: systemPrompt }] },
+           { role: 'model', parts: [{ text: 'Understood. I will respond in the requested JSON format.' }] },
+           ...history,
+           { role: 'user', parts: [{ text: msg }] }
+        ];
+
+        const aiResponse = await ai.models.generateContent({
+            model: 'gemini-1.5-flash',
+            contents: contents
+        });
+
+        let replyText = aiResponse.text;
+        let replyObj = { text: replyText, options: [] };
+
+        // Try to parse JSON from AI response
+        try {
+          const jsonMatch = replyText.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            const parsed = JSON.parse(jsonMatch[0]);
+            replyObj.text = parsed.text || replyText;
+            replyObj.options = parsed.options || [];
+          }
+        } catch (e) {
+          console.log('Gemini suggested buttons parse failed:', e.message);
+        }
+
+        // Save new messages to history (save plain text for history)
+        if (chatDoc) {
+           chatDoc.messages.push({ role: 'user', content: msg });
+           chatDoc.messages.push({ role: 'model', content: replyObj.text });
+           await chatDoc.save();
+        }
+
+        return res.json({
+          success: true,
+          response: {
+            text: replyObj.text,
+            options: replyObj.options.length > 0 ? replyObj.options : ['Book Service', 'View Services']
+          }
+        });
+      } catch (aiError) {
+        console.error('Gemini API error fallback:', aiError);
+      }
+    }
+
+    // --- FALLBACK HARDCODED RESPONSES ---
+
     // Service-specific responses
     if (msg.includes('plumb') || msg.includes('leak') || msg.includes('pipe')) {
       const plumbingServices = await Service.find({ category: 'Plumbing' }).limit(3);
@@ -144,63 +225,7 @@ exports.getChatResponse = async (req, res) => {
       });
     }
 
-    // Default response using Gemini
-    if (process.env.GEMINI_API_KEY) {
-      try {
-        const { GoogleGenAI } = require('@google/genai');
-        const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-        
-        let history = [];
-        const ChatHistory = require('../models/ChatHistory');
-        let chatDoc = null;
 
-        // Load history if user authenticated or userId provided
-        const uid = req.user ? req.user._id : req.body.userId;
-        if (uid) {
-          chatDoc = await ChatHistory.findOne({ userId: uid });
-          if (chatDoc) {
-             history = chatDoc.messages.slice(-10).map(m => ({
-               role: m.role,
-               parts: [{ text: m.content }]
-             }));
-          } else {
-             chatDoc = new ChatHistory({ userId: uid, messages: [] });
-          }
-        }
-
-        const systemPrompt = `You are ServiceHub's intelligent assistant. Keep answers brief (max 2 paragraphs). Help users with booking and general inquiries. Be polite, professional, and helpful. Do not format with markdown unless absolutely necessary.`;
-
-        const contents = [
-           { role: 'user', parts: [{ text: systemPrompt }] },
-           { role: 'model', parts: [{ text: 'Understood. I am the ServiceHub assistant.' }] },
-           ...history,
-           { role: 'user', parts: [{ text: msg }] }
-        ];
-
-        const aiResponse = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: contents
-        });
-
-        const reply = aiResponse.text;
-
-        // Save new messages to history
-        if (chatDoc) {
-           chatDoc.messages.push({ role: 'user', content: msg });
-           chatDoc.messages.push({ role: 'model', content: reply });
-           await chatDoc.save();
-        }
-
-        return res.json({
-          success: true,
-          response: {
-            text: reply
-          }
-        });
-      } catch (aiError) {
-        console.error('Gemini API error fallback:', aiError);
-      }
-    }
 
     // Ultimate fallback if no API KEY or Gemini throws error
     return res.json({

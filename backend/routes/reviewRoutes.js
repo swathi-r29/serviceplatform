@@ -1,14 +1,21 @@
 const express = require('express');
-const { createReview, getWorkerReviews } = require('../controllers/reviewController');
+const {
+  createReview,
+  getWorkerReviews,
+  getUserReviews,
+  checkCanReview
+} = require('../controllers/reviewController');
 const { protect } = require('../middleware/auth');
-const { checkRole } = require('../middleware/roleCheck');
+
 const router = express.Router();
 
+// Public
 router.get('/worker/:workerId', getWorkerReviews);
 
+// Auth required
 router.use(protect);
-router.use(checkRole('user'));
-
-router.post('/', createReview);
+router.post('/',                     createReview);
+router.get('/my-reviews',            getUserReviews);
+router.get('/can-review/:bookingId', checkCanReview);
 
 module.exports = router;

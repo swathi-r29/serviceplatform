@@ -1,30 +1,40 @@
+import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useWebRTC } from '../../context/WebRTCContext';
-import { FaPhone, FaMapMarkerAlt, FaPlay } from 'react-icons/fa';
+import { FaPhone } from 'react-icons/fa';
+import LifecycleTimeline from '../common/LifecycleTimeline';
+import BookingActions from './BookingActions';
+import WorkerTrackingControls from '../tracking/WorkerTrackingControls';
+import axios from '../../api/axios';
 
 const WorkerBookingCard = ({ booking, onRefresh }) => {
-  const { startStream, callUser, setIsCallModalOpen, socket } = useWebRTC();
-  const [isSimulating, setIsSimulating] = useState(false);
+  const { startStream, callUser, setIsCallModalOpen } = useWebRTC();
 
-  const startGpsSimulation = () => {
-    setIsSimulating(true);
-    // Simulation coordinates (starting in Bangalore)
-    let lat = 12.9716;
-    let lng = 77.5946;
+  // Decode workerId from JWT for the tracking hook
+  const workerId = (() => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return null;
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      return payload.id || payload._id || null;
+    } catch { return null; }
+  })();
 
-    const interval = setInterval(() => {
-      lat += 0.0002;
-      lng += 0.0002;
-      socket.emit('update-location', { 
-         bookingId: booking._id, 
-         coords: { lat, lng } 
+  const handleWorkerCancel = async () => {
+    const isConfirmed = window.confirm("Cancelling will give the customer a full refund and affect your reliability score. Continue?");
+    if (!isConfirmed) return;
+    
+    try {
+      await axios.post('/cancellation/cancel', {
+        bookingId: booking._id,
+        reason: 'Provider cancelled'
       });
-    }, 3000);
-
-    // Stop simulation after 2 minutes or if component unmounts
-    setTimeout(() => {
-      clearInterval(interval);
-      setIsSimulating(false);
-    }, 120000);
+      alert('Cancellation successful. The customer will receive a full refund.');
+      onRefresh();
+    } catch (error) {
+      console.error('Cancel failed', error);
+      alert(error.response?.data?.message || 'Failed to cancel the booking. Please contact support.');
+    }
   };
 
   const statusColors = {
@@ -42,16 +52,16 @@ const WorkerBookingCard = ({ booking, onRefresh }) => {
       <div className="flex justify-between items-start mb-6">
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-3">
-             <span className={`px-2.5 py-0.5 rounded text-[10px] font-black uppercase tracking-widest ${statusColors[booking.status]}`}>
-               {booking.status}
-             </span>
+            <span className={`px-2.5 py-0.5 rounded text-[10px] font-black uppercase tracking-widest ${statusColors[booking.status]}`}>
+              {booking.status}
+            </span>
           </div>
           <h3 className="text-2xl font-black text-gray-900 tracking-tight mb-2 group-hover:text-blue-600 transition-colors">
             {booking.service?.name}
           </h3>
           <div className="space-y-1">
             <p className="text-sm font-bold text-gray-700 flex items-center gap-2">
-               <span className="text-gray-400 font-medium">Customer:</span> {booking.user?.name}
+              <span className="text-gray-400 font-medium">Customer:</span> {booking.user?.name}
             </p>
             <p className="text-xs text-gray-500 font-medium">{booking.address}</p>
           </div>
@@ -66,15 +76,16 @@ const WorkerBookingCard = ({ booking, onRefresh }) => {
       </div>
 
       <div className="bg-gray-50/50 rounded-xl p-4 mb-6">
-         <LifecycleTimeline 
-           currentStatus={booking.status} 
-           history={booking.statusHistory} 
-         />
+        <LifecycleTimeline
+          currentStatus={booking.status}
+          history={booking.statusHistory}
+        />
       </div>
 
-      <div className="mt-auto grid grid-cols-2 gap-3">
+      <div className="mt-auto space-y-3">
+        {/* Call + Chat buttons for active bookings */}
         {['accepted', 'on-the-way', 'in-progress'].includes(booking.status) && (
-          <>
+          <div className="grid grid-cols-2 gap-3">
             <button
               onClick={() => {
                 startStream();
@@ -91,23 +102,32 @@ const WorkerBookingCard = ({ booking, onRefresh }) => {
             >
               Open Messaging
             </Link>
-          </>
+          </div>
         )}
 
-        {booking.status === 'on-the-way' && (
-          <button
-            disabled={isSimulating}
-            onClick={startGpsSimulation}
-            className={`col-span-2 flex items-center justify-center gap-2 py-3 ${isSimulating ? 'bg-gray-100 text-gray-400' : 'bg-blue-600 text-white hover:bg-blue-700 shadow-blue-100'} rounded-xl font-bold text-xs transition-all shadow-lg uppercase tracking-widest`}
-          >
-            <FaPlay size={10} className={isSimulating ? 'animate-spin' : ''} />
-            {isSimulating ? 'Broadcasting GPS Signal...' : 'Simulate GPS Trip (New)'}
-          </button>
-        )}
+        {/* ── Live location controls (replaces old GPS simulation) ── */}
+        <WorkerTrackingControls
+          bookingId={booking._id}
+          bookingStatus={booking.status}
+          workerId={workerId}
+        />
 
-        <div className="col-span-2">
-            <BookingActions booking={booking} onRefresh={onRefresh} />
+        {/* Status action buttons */}
+        <div>
+          <BookingActions booking={booking} onRefresh={onRefresh} />
         </div>
+
+        {/* Worker Cancel Button */}
+        {['pending', 'accepted'].includes(booking.status) && (
+          <div className="pt-3 border-t border-gray-100 flex justify-end">
+            <button
+              onClick={handleWorkerCancel}
+              className="px-4 py-2 bg-white border border-red-200 text-red-500 text-xs font-bold rounded-lg hover:bg-red-50 transition"
+            >
+              Cancel Job
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -12,7 +12,6 @@ const WorkerProfile = () => {
     skillRates: [], // [{ skillName, rate, estimatedTime, pricingType }]
     isAvailable: true,
     coordinates: null,
-    hourlyRate: '',
     serviceCharge: '',
     password: ''
   });
@@ -38,7 +37,6 @@ const WorkerProfile = () => {
         skillRates: Array.isArray(data.skillRates) ? data.skillRates : [],
         isAvailable: data.isAvailable !== undefined ? data.isAvailable : true,
         coordinates: data.coordinates || null,
-        hourlyRate: data.hourlyRate || 0,
         serviceCharge: data.serviceCharge || 0,
         password: ''
       });
@@ -62,7 +60,7 @@ const WorkerProfile = () => {
   const handleChange = (e) => {
     const { name, value } = e.target;
     // Prevent negative numbers for rate fields
-    if ((name === 'hourlyRate' || name === 'serviceCharge') && parseFloat(value) < 0) return;
+    if (name === 'serviceCharge' && parseFloat(value) < 0) return;
     setFormData({ ...formData, [name]: value });
   };
 
@@ -128,10 +126,8 @@ const WorkerProfile = () => {
 
       submitData.append('isAvailable', formData.isAvailable.toString());
 
-      // 🚀 Hybrid Pricing Upgrade
+      // 🚀 Skill-Specific Pricing Upgrade
       submitData.append('skillRates', JSON.stringify(formData.skillRates));
-
-      if (formData.hourlyRate !== undefined) submitData.append('hourlyRate', formData.hourlyRate);
       if (formData.serviceCharge !== undefined) submitData.append('serviceCharge', formData.serviceCharge);
 
       if (formData.coordinates) {
@@ -423,25 +419,7 @@ const WorkerProfile = () => {
                       </div>
                     </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">
-                        General Hourly Rate (₹)
-                      </label>
-                      <div className="mt-1 relative rounded-md shadow-sm">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400 font-bold">
-                          ₹
-                        </div>
-                        <input
-                          type="number"
-                          name="hourlyRate"
-                          value={formData.hourlyRate}
-                          onChange={handleChange}
-                          className="focus:ring-[#e67e22] focus:border-[#e67e22] block w-full pl-10 sm:text-sm border-gray-300 rounded-lg py-3"
-                          placeholder="0.00"
-                          min="0"
-                        />
-                      </div>
-                    </div>
+
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700">
@@ -460,7 +438,7 @@ const WorkerProfile = () => {
                           placeholder="0.00"
                         />
                       </div>
-                      {!formData.serviceCharge && !formData.hourlyRate && (
+                      {!formData.serviceCharge && formData.skillRates.length === 0 && (
                         <div className="mt-4 p-4 bg-[#fdf2e9] border border-[#fae5d3] rounded-2xl flex gap-3 items-start animate-pulse">
                           <div className="p-1 bg-[#e67e22]/10 rounded-lg">
                             <svg className="w-4 h-4 text-[#e67e22]" fill="none" viewBox="0 0 24 24" stroke="currentColor">

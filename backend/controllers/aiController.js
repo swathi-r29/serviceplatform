@@ -32,7 +32,7 @@ exports.getSmartRecommendations = async (req, res) => {
         const historySummary = pastBookings.map(b => b.service?.name).join(', ');
 
         try {
-            const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+            const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
             const prompt = `
                 You are an AI advisor for "ServiceHub", a multi-service platform.
                 Current Context: ${seasonalContext}
@@ -98,7 +98,7 @@ exports.smartSearch = async (req, res) => {
         const categories = ['Plumbing', 'Electrical', 'Cleaning', 'Carpentry', 'Painting', 'AC Repair', 'Cooking', 'Pest Control', 'Appliance Repair', 'Moving & Packing', 'Home Tutoring', 'Salon & Spa', 'Gardening', 'Smart Home', 'Other'];
 
         try {
-            const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+            const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
             const prompt = `
                 Convert the following natural language service request into a structured search object.
                 Query: "${query}"
@@ -154,7 +154,60 @@ exports.smartSearch = async (req, res) => {
     }
 };
 
-// Helper for Haversine distance
+/**
+ * Pure deterministic match score for a single provider.
+ * No DB calls, no async — all data comes from built providerData.
+ * @param {Object} provider  - single entry from providerData
+ * @param {Object[]} allProviders - full providerData array
+ * @returns {{ total: number, priceScore: number, proximityScore: number, ratingScore: number, rateTypeBonus: number }}
+ */
+const calculateMatchScore = (provider, allProviders) => {
+    // --- 1. PRICE COMPETITIVENESS (35 pts) ---
+    const cheapestTotal = Math.min(...allProviders.map(p => p.total));
+    const priceDiffRatio = cheapestTotal > 0
+        ? (provider.total - cheapestTotal) / cheapestTotal
+        : 0;
+    let priceScore;
+    if (provider.total === cheapestTotal)  priceScore = 35;
+    else if (priceDiffRatio <= 0.10)       priceScore = 25;
+    else if (priceDiffRatio <= 0.25)       priceScore = 15;
+    else                                   priceScore = 5;
+
+    // --- 2. PROXIMITY SCORE (30 pts) ---
+    // provider.distanceKm is the raw numeric km value
+    let proximityScore;
+    const km = provider.distanceKm;
+    if (km === null || km === undefined)    proximityScore = 15; // neutral
+    else if (km <= 3)                       proximityScore = 30;
+    else if (km <= 7)                       proximityScore = 22;
+    else if (km <= 15)                      proximityScore = 14;
+    else if (km <= 30)                      proximityScore =  7;
+    else                                    proximityScore =  2;
+
+    // --- 3. RATING SCORE (25 pts) ---
+    const rating = provider.rating || 0;
+    let ratingScore;
+    if (rating >= 4.8)      ratingScore = 25;
+    else if (rating >= 4.5) ratingScore = 20;
+    else if (rating >= 4.0) ratingScore = 15;
+    else if (rating >= 3.5) ratingScore = 10;
+    else                    ratingScore =  5;
+
+    // --- 4. RATE TYPE BONUS (10 pts) ---
+    let rateTypeBonus;
+    if (provider.rateType === 'fixed')      rateTypeBonus = 10;
+    else if (provider.rateType === 'hourly') rateTypeBonus = 5;
+    else                                    rateTypeBonus =  3;
+
+    return {
+        total: priceScore + proximityScore + ratingScore + rateTypeBonus,
+        priceScore,
+        proximityScore,
+        ratingScore,
+        rateTypeBonus
+    };
+};
+
 const calculateDistance = (lat1, lon1, lat2, lon2) => {
     if (!lat1 || !lon1 || !lat2 || !lon2) return null;
     const R = 6371; // Radius of the earth in km
@@ -223,25 +276,30 @@ exports.predictFairPrice = async (req, res) => {
             console.log(`🔎 CATEGORY RESULTS: ${providers.length}`);
         }
 
-        // Process top 2 providers with travel info
+        // --- Build providerData with raw distanceKm for scoring ---
         const providerData = providers.map(p => {
-            const distance = calculateDistance(
-                userCoords?.lat, userCoords?.lng, 
+            const distanceKm = calculateDistance(
+                userCoords?.lat, userCoords?.lng,
                 p.coordinates?.lat, p.coordinates?.lng
             );
 
-            // 🔍 LIVE GPS AUDIT: Diagnosing the 68km vs 21km mismatch
+            // 🔍 LIVE GPS AUDIT
             console.log(`\n📡 --- GPS AUDIT: ${p.name} ---`);
             console.log(`📍 USER PIN:    Lat: ${userCoords?.lat}, Lng: ${userCoords?.lng}`);
             console.log(`📍 PRO BASE:    Lat: ${p.coordinates?.lat}, Lng: ${p.coordinates?.lng}`);
-            console.log(`📏 CALC DIST:   ${distance} km`);
+            console.log(`📏 CALC DIST:   ${distanceKm} km`);
             console.log('------------------------------------\n');
 
-            const travelExpense = distance === null ? 30 : (distance <= 5 ? 30 : Math.round(distance * 10)); // ₹10/km, min ₹30
-            
-            // 🚀 Senior Refactor: Use centralized Pricing Helper for Comparison
+            const travelExpense = distanceKm === null ? 30 : (distanceKm <= 5 ? 30 : Math.round(distanceKm * 10));
+
+            // skillPricing-aware rateType
+            const skillEntry = p.skillPricing?.find(
+                sp => sp.skill.toLowerCase() === service.category.toLowerCase() && sp.isActive
+            );
+            const rateType = skillEntry?.rateType || (p.serviceCharge ? 'fixed' : null);
+
             const pricing = getServicePrice(p, service.category, service, travelExpense);
-            
+
             return {
                 id: p._id,
                 name: p.name,
@@ -249,82 +307,84 @@ exports.predictFairPrice = async (req, res) => {
                 serviceCharge: pricing.basePrice,
                 travelExpense,
                 total: pricing.total,
-                distance: distance ? `${distance} km` : (!userCoords ? 'Set location for distance' : 'N/A'),
+                distanceKm,                             // raw number for scoring
+                distance: distanceKm !== null
+                    ? `${distanceKm} km`
+                    : (!userCoords ? 'Set location for distance' : 'N/A'),
                 estimatedTime: pricing.estimatedTime,
-                pricingType: pricing.pricingType
+                pricingType: pricing.pricingType,
+                rateType: rateType || 'fixed'
             };
         }).sort((a, b) => a.total - b.total).slice(0, 2);
 
-        if (providerData.length < 1) {
-            return res.json({ 
-                category: "INSUFFICIENT_PROV", 
-                reasoning: "No nearby professionals found for comparison.",
-                smartScore: 0
+        // --- Deterministic scoring (pure, no DB) ---
+        const scoredProviders = providerData.map(p => {
+            const breakdown = calculateMatchScore(p, providerData);
+            return { ...p, matchScore: breakdown.total, scoreBreakdown: breakdown };
+        });
+
+        // Winner = highest matchScore
+        const winner = scoredProviders.reduce(
+            (best, p) => p.matchScore > best.matchScore ? p : best,
+            scoredProviders[0]
+        );
+
+        if (scoredProviders.length < 1) {
+            return res.status(200).json({
+                category: 'INSUFFICIENT_PROV',
+                reasoning: 'No nearby professionals found for comparison.',
+                matchScore: 0
             });
         }
 
+        // Build unified comparison array
+        const comparisonArray = scoredProviders.map(p => ({
+            name: p.name,
+            charge: `₹${p.serviceCharge}`,
+            travel: `₹${p.travelExpense}`,
+            total: `₹${p.total}`,
+            distance: p.distance,
+            rating: p.rating,
+            rateType: p.rateType,
+            matchScore: p.matchScore
+        }));
+
+        const loser = scoredProviders.find(p => p.name !== winner.name) || winner;
+        const savingsDetail = loser.total > winner.total
+            ? `Save ₹${loser.total - winner.total} vs ${loser.name}`
+            : 'Only provider available';
+
+        // --- Gemini: one-sentence reasoning ONLY (deterministic score already set) ---
+        let reasoning = `${winner.name} leads with the best combined score across price, distance, and rating.`;
         try {
-            const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-            const prompt = `
-You are a "Smart Choice" Professional Choice AI. 
-Your goal is to compare TWO internal professionals (e.g. Sam, Mansha) and recommend the best one for the customer based on total cost (Service + Travel) and ratings.
-
-⚠️ CRITICAL RULES:
-1. ONLY use names and data from PROVIDER_DATA.
-2. NEVER mention external websites like Urban Company, TaskRabbit, or others.
-3. NEVER hallucinate price data outside of what is provided.
-4. If one is cheaper or closer, highlight that specific advantage.
-5. Provide a "winner" name and a "reasoning".
-
-📥 PROVIDER_DATA:
-${JSON.stringify(providerData)}
-
-🎯 TASK:
-Break down the costs and name the winner. Focus on saving the user money on travel. 
-CRITICAL: Use the specific "distance" and "travelExpense" provided in the PROVIDER_DATA for each professional. NEVER invent or say "Unknown" if a distance is provided.
-
-🧾 OUTPUT FORMAT (STRICT JSON ONLY):
-{
-  "winner": "Name of winning provider",
-  "comparison": [
-    { "name": "string", "charge": "₹SC", "travel": "₹TE", "total": "₹T", "distance": "km" }
-  ],
-  "reasoning": "1-sentence explaination why winner was chosen",
-  "smartScore": number (0-100 logic: 100 = huge distance saving/best rating, <50 = long distance),
-  "savingsDetail": "How much they save vs the other option"
-}
-            `;
+            const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+            const p1 = scoredProviders[0];
+            const p2 = scoredProviders[1] || p1;
+            const prompt = `You are a smart assistant for a home services platform.
+Two professionals are being compared:
+Provider 1: ${p1.name}, Total: ₹${p1.total}, Distance: ${p1.distance}, Rating: ${p1.rating}, Rate Type: ${p1.rateType}
+Provider 2: ${p2.name}, Total: ₹${p2.total}, Distance: ${p2.distance}, Rating: ${p2.rating}, Rate Type: ${p2.rateType}
+Winner: ${winner.name} (Match Score: ${winner.matchScore}/100)
+Write ONE sentence explaining why ${winner.name} is the better choice.
+Be specific about which number made the difference. Max 20 words.
+Return ONLY the sentence, no JSON, no quotes.`;
 
             const result = await model.generateContent(prompt);
-            const response = await result.response;
-            let responseText = response.text().trim();
-            
-            if (responseText.includes("```")) {
-                responseText = responseText.match(/```(?:json)?([\s\S]*?)```/)?.[1] || responseText;
-            }
-
-            const analysis = JSON.parse(responseText.trim());
-            return res.json(analysis);
-
+            const raw = result.response.text().trim();
+            if (raw && raw.length < 300) reasoning = raw;
         } catch (aiError) {
-            console.error("AI Provider Analysis Error:", aiError.message);
-            // Simple Fallback Comparison
-            const p1 = providerData[0];
-            const p2 = providerData[1] || p1;
-            return res.json({
-                winner: p1.name,
-                comparison: providerData.map(p => ({
-                    name: p.name,
-                    charge: `₹${p.serviceCharge}`,
-                    travel: `₹${p.travelExpense}`,
-                    total: `₹${p.total}`,
-                    distance: `${p.distance} km`
-                })),
-                reasoning: `${p1.name} is the best choice based on total cost and availability.`,
-                smartScore: 90,
-                savingsDetail: p2 ? `Save ₹${p2.total - p1.total} compared to ${p2.name}` : "Only provider available"
-            });
+            console.error('Gemini reasoning failed, using fallback:', aiError.message);
+            // reasoning already set to deterministic fallback string above
         }
+
+        return res.status(200).json({
+            winner: winner.name,
+            matchScore: winner.matchScore,
+            scoreBreakdown: winner.scoreBreakdown,
+            comparison: comparisonArray,
+            reasoning,
+            savingsDetail
+        });
     } catch (error) {
         console.error("Provider Analysis Critical Failure:", error);
         res.status(500).json({ message: "Provider analysis failed" });

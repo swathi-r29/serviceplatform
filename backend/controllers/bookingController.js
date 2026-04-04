@@ -42,6 +42,13 @@ const createBooking = async (req, res) => {
       return res.status(404).json({ message: 'Worker not found' });
     }
 
+    // Calculate distance and travel fee
+    const distance = calculateDistance(
+      locationCoords?.lat, locationCoords?.lng,
+      worker.coordinates?.lat, worker.coordinates?.lng
+    );
+    const travelCharge = getTravelFee(distance);
+
     // 🚀 Senior Refactor: Use centralized Pricing Helper
     const priceResult = getServicePrice(worker, service.category, service, travelCharge);
 

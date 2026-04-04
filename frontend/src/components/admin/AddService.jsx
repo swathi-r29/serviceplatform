@@ -46,10 +46,10 @@ const AddService = () => {
       } else {
         // 🚀 Senior Logic: Auto-Sync Price from Worker's Skill Registry
         const worker = allWorkers.find(w => w._id === workerId);
-        const skillMatch = worker?.skillRates?.find(s => 
+        const skillMatch = worker?.skillRates?.find(s =>
           s.skillName.toLowerCase() === prev.category.toLowerCase()
         );
-        
+
         const initialPrice = skillMatch ? skillMatch.rate : (prev.price || 0);
 
         return {
@@ -63,7 +63,7 @@ const AddService = () => {
   const handleWorkerPriceChange = (workerId, newPrice) => {
     setFormData(prev => ({
       ...prev,
-      workers: prev.workers.map(w => 
+      workers: prev.workers.map(w =>
         (w.workerId || w) === workerId ? { ...w, price: newPrice } : w
       )
     }));
@@ -123,13 +123,13 @@ const AddService = () => {
         {/* Main Form Card */}
         <form onSubmit={handleSubmit} className="bg-white rounded-[2.5rem] shadow-2xl shadow-[#1a1a1a]/5 p-8 md:p-12 border border-[#f5ede2]">
           <div className="space-y-8">
-            
+
             {/* Service Name */}
             <div className="group relative">
               <label className="block text-xs font-bold text-[#c4975d] uppercase tracking-widest mb-2 ml-1">Service Identity</label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-[#c4975d] transition-colors">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82zM7 7h.01"/></svg>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82zM7 7h.01" /></svg>
                 </div>
                 <input
                   type="text"
@@ -173,7 +173,7 @@ const AddService = () => {
                     ))}
                   </select>
                   <div className="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none text-[#c4975d]">
-                    <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path d="M19 9l-7 7-7-7"/></svg>
+                    <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path d="M19 9l-7 7-7-7" /></svg>
                   </div>
                 </div>
               </div>
@@ -182,7 +182,7 @@ const AddService = () => {
               <div>
                 <label className="block text-xs font-bold text-[#c4975d] uppercase tracking-widest mb-2 ml-1">Service Fee (₹)</label>
                 <div className="relative">
-                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-[#c4975d] font-bold text-lg">₹</div>
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-[#c4975d] font-bold text-lg">₹</div>
                   <input
                     type="number"
                     name="price"
@@ -201,7 +201,7 @@ const AddService = () => {
                 <label className="block text-xs font-bold text-[#c4975d] uppercase tracking-widest mb-2 ml-1">Est. Duration (hours)</label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-[#c4975d]">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></svg>
                   </div>
                   <input
                     type="number"
@@ -218,9 +218,9 @@ const AddService = () => {
               <div>
                 <label className="block text-xs font-bold text-[#c4975d] uppercase tracking-widest mb-2 ml-1">Brand Visual (Image)</label>
                 <label className="flex items-center justify-center w-full px-5 py-4 bg-[#fdfaf5]/50 border-2 border-dashed border-[#f5ede2] rounded-xl hover:border-[#c4975d] cursor-pointer transition-all group">
-                   <svg width="20" height="20" className="mr-3 text-gray-400 group-hover:text-[#c4975d]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                   <span className="text-sm font-medium text-gray-500 group-hover:text-[#1a1a1a]">{image ? image.name : 'Upload visual...'}</span>
-                   <input
+                  <svg width="20" height="20" className="mr-3 text-gray-400 group-hover:text-[#c4975d]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                  <span className="text-sm font-medium text-gray-500 group-hover:text-[#1a1a1a]">{image ? image.name : 'Upload visual...'}</span>
+                  <input
                     type="file"
                     accept="image/*"
                     onChange={(e) => setImage(e.target.files[0])}
@@ -237,14 +237,13 @@ const AddService = () => {
                   <label className="block text-xs font-bold text-[#c4975d] uppercase tracking-widest leading-none">Assignment Engine</label>
                   <p className="text-[10px] text-gray-400 font-medium uppercase mt-1">Filtering for: {formData.category}</p>
                 </div>
-                <button 
+                <button
                   type="button"
                   onClick={() => setShowAllWorkers(!showAllWorkers)}
-                  className={`text-[9px] font-bold px-3 py-1 rounded-full border transition-all ${
-                    showAllWorkers 
-                      ? 'bg-[#1a1a1a] text-white border-[#1a1a1a]' 
+                  className={`text-[9px] font-bold px-3 py-1 rounded-full border transition-all ${showAllWorkers
+                      ? 'bg-[#1a1a1a] text-white border-[#1a1a1a]'
                       : 'bg-white text-gray-500 border-gray-200 hover:border-[#c4975d]'
-                  }`}
+                    }`}
                 >
                   {showAllWorkers ? 'Showing All' : 'Filter by Expertise'}
                 </button>
@@ -253,7 +252,7 @@ const AddService = () => {
               <div className="bg-[#fdfaf5]/50 border-2 border-[#f5ede2] rounded-3xl p-6 max-h-[400px] overflow-y-auto space-y-4 shadow-inner">
                 {allWorkers
                   .map(worker => {
-                    const skillMatch = worker.skillRates?.find(s => 
+                    const skillMatch = worker.skillRates?.find(s =>
                       s.skillName.toLowerCase() === formData.category.toLowerCase()
                     );
                     const isExpert = !!skillMatch;
@@ -264,24 +263,22 @@ const AddService = () => {
                     if (!showAllWorkers && !isExpert && !isSelected) return null;
 
                     return (
-                      <div 
-                        key={worker._id} 
-                        className={`group relative flex flex-col p-5 rounded-[1.5rem] border-2 transition-all ${
-                          isSelected 
-                            ? 'bg-white border-[#c4975d] shadow-lg shadow-[#c4975d]/5' 
+                      <div
+                        key={worker._id}
+                        className={`group relative flex flex-col p-5 rounded-[1.5rem] border-2 transition-all ${isSelected
+                            ? 'bg-white border-[#c4975d] shadow-lg shadow-[#c4975d]/5'
                             : 'bg-transparent border-transparent hover:bg-white hover:border-[#f5ede2]'
-                        }`}
+                          }`}
                       >
                         <div className="flex items-start">
-                          <div 
+                          <div
                             onClick={() => handleWorkerToggle(worker._id)}
-                            className={`w-7 h-7 rounded-lg flex items-center justify-center mr-4 cursor-pointer transition-all duration-300 ${
-                              isSelected ? 'bg-[#c4975d] text-white scale-110' : 'bg-gray-100 group-hover:shadow-inner'
-                            }`}
+                            className={`w-7 h-7 rounded-lg flex items-center justify-center mr-4 cursor-pointer transition-all duration-300 ${isSelected ? 'bg-[#c4975d] text-white scale-110' : 'bg-gray-100 group-hover:shadow-inner'
+                              }`}
                           >
-                            {isSelected && <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3"><path d="M5 13l4 4L19 7"/></svg>}
+                            {isSelected && <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3"><path d="M5 13l4 4L19 7" /></svg>}
                           </div>
-                          
+
                           <div className="flex-1 cursor-pointer" onClick={() => handleWorkerToggle(worker._id)}>
                             <div className="flex items-center gap-2">
                               <p className="text-sm font-bold text-[#1a1a1a]">{worker.name}</p>
@@ -291,7 +288,7 @@ const AddService = () => {
                                 </span>
                               )}
                             </div>
-                            
+
                             {isExpert ? (
                               <div className="mt-2 flex items-center gap-3">
                                 <div className="flex items-center text-[10px] bg-[#fdfaf5] border border-[#f5ede2] text-[#c4975d] font-bold px-2 py-1 rounded-lg">
@@ -313,7 +310,7 @@ const AddService = () => {
                               <label className="text-[8px] font-black text-gray-300 uppercase tracking-widest">Assigned Price</label>
                               <div className="flex items-center bg-[#fdfaf5] border border-[#f5ede2] rounded-xl px-3 py-2 group-focus-within:border-[#c4975d] transition-colors">
                                 <span className="text-xs font-bold text-[#c4975d] mr-1">₹</span>
-                                <input 
+                                <input
                                   type="number"
                                   value={selectedWorker.price}
                                   onChange={(e) => handleWorkerPriceChange(worker._id, e.target.value)}
@@ -332,7 +329,7 @@ const AddService = () => {
                   })}
                 {allWorkers.length === 0 && (
                   <div className="text-center py-12 opacity-30">
-                    <svg width="40" height="40" className="mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1"><path d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+                    <svg width="40" height="40" className="mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1"><path d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
                     <p className="text-xs font-bold uppercase tracking-[0.2em] italic">Personnel File Empty</p>
                   </div>
                 )}
