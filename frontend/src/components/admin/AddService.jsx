@@ -13,6 +13,7 @@ const AddService = () => {
   });
   const [image, setImage] = useState(null);
   const [allWorkers, setAllWorkers] = useState([]);
+  const [showAllWorkers, setShowAllWorkers] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
@@ -43,9 +44,17 @@ const AddService = () => {
           workers: prev.workers.filter(w => (w.workerId || w) !== workerId)
         };
       } else {
+        // 🚀 Senior Logic: Auto-Sync Price from Worker's Skill Registry
+        const worker = allWorkers.find(w => w._id === workerId);
+        const skillMatch = worker?.skillRates?.find(s => 
+          s.skillName.toLowerCase() === prev.category.toLowerCase()
+        );
+        
+        const initialPrice = skillMatch ? skillMatch.rate : (prev.price || 0);
+
         return {
           ...prev,
-          workers: [...prev.workers, { workerId, price: prev.price || 0 }]
+          workers: [...prev.workers, { workerId, price: initialPrice }]
         };
       }
     });
@@ -221,80 +230,112 @@ const AddService = () => {
               </div>
             </div>
 
-            {/* Worker Selection */}
+            {/* Professional Discovery & Assignment */}
             <div>
-              <div className="flex items-center justify-between mb-3 px-1">
-                <label className="block text-xs font-bold text-[#c4975d] uppercase tracking-widest">Assign Professionals</label>
-                <span className="text-[10px] font-bold bg-[#c4975d]/10 text-[#c4975d] px-2 py-0.5 rounded-full">
-                  Skill Match: {formData.category}
-                </span>
+              <div className="flex items-center justify-between mb-4 px-1">
+                <div className="flex flex-col">
+                  <label className="block text-xs font-bold text-[#c4975d] uppercase tracking-widest leading-none">Assignment Engine</label>
+                  <p className="text-[10px] text-gray-400 font-medium uppercase mt-1">Filtering for: {formData.category}</p>
+                </div>
+                <button 
+                  type="button"
+                  onClick={() => setShowAllWorkers(!showAllWorkers)}
+                  className={`text-[9px] font-bold px-3 py-1 rounded-full border transition-all ${
+                    showAllWorkers 
+                      ? 'bg-[#1a1a1a] text-white border-[#1a1a1a]' 
+                      : 'bg-white text-gray-500 border-gray-200 hover:border-[#c4975d]'
+                  }`}
+                >
+                  {showAllWorkers ? 'Showing All' : 'Filter by Expertise'}
+                </button>
               </div>
-              <div className="bg-[#fdfaf5]/50 border-2 border-[#f5ede2] rounded-2xl p-6 max-h-72 overflow-y-auto space-y-4">
+
+              <div className="bg-[#fdfaf5]/50 border-2 border-[#f5ede2] rounded-3xl p-6 max-h-[400px] overflow-y-auto space-y-4 shadow-inner">
                 {allWorkers
-                  .filter(worker => {
-                    const category = formData.category.toLowerCase();
-                    return worker.skills?.some(skill => {
-                      const s = skill.toLowerCase();
-                      return s.includes(category) || category.includes(s) ||
-                        (category === 'carpentry' && s.includes('carpenter')) ||
-                        (category === 'electrical' && s.includes('electrician'));
-                    });
-                  })
                   .map(worker => {
+                    const skillMatch = worker.skillRates?.find(s => 
+                      s.skillName.toLowerCase() === formData.category.toLowerCase()
+                    );
+                    const isExpert = !!skillMatch;
                     const selectedWorker = formData.workers.find(w => (w.workerId || w) === worker._id);
                     const isSelected = !!selectedWorker;
-                    
+
+                    // If not showing all, hide non-experts unless they are specifically assigned
+                    if (!showAllWorkers && !isExpert && !isSelected) return null;
+
                     return (
                       <div 
                         key={worker._id} 
-                        className={`flex flex-col p-4 rounded-2xl border-2 transition-all ${
+                        className={`group relative flex flex-col p-5 rounded-[1.5rem] border-2 transition-all ${
                           isSelected 
-                            ? 'bg-white border-[#c4975d] shadow-sm' 
+                            ? 'bg-white border-[#c4975d] shadow-lg shadow-[#c4975d]/5' 
                             : 'bg-transparent border-transparent hover:bg-white hover:border-[#f5ede2]'
                         }`}
                       >
-                        <div className="flex items-center mb-3">
+                        <div className="flex items-start">
                           <div 
                             onClick={() => handleWorkerToggle(worker._id)}
-                            className={`w-6 h-6 rounded flex items-center justify-center mr-4 cursor-pointer transition-colors ${
-                              isSelected ? 'bg-[#c4975d] text-white' : 'bg-gray-200'
+                            className={`w-7 h-7 rounded-lg flex items-center justify-center mr-4 cursor-pointer transition-all duration-300 ${
+                              isSelected ? 'bg-[#c4975d] text-white scale-110' : 'bg-gray-100 group-hover:shadow-inner'
                             }`}
                           >
-                            {isSelected && <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3"><path d="M5 13l4 4L19 7"/></svg>}
+                            {isSelected && <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3"><path d="M5 13l4 4L19 7"/></svg>}
                           </div>
+                          
                           <div className="flex-1 cursor-pointer" onClick={() => handleWorkerToggle(worker._id)}>
-                            <p className="text-sm font-bold text-[#1a1a1a] leading-none">{worker.name}</p>
-                            <p className="text-[10px] text-gray-500 font-medium uppercase mt-1 tracking-tight">{worker.location} • {worker.skills?.slice(0,2).join(', ')}</p>
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm font-bold text-[#1a1a1a]">{worker.name}</p>
+                              {isExpert && (
+                                <span className="bg-yellow-100 text-yellow-700 text-[8px] font-black uppercase px-2 py-0.5 rounded-full tracking-widest whitespace-nowrap">
+                                  Top Expert
+                                </span>
+                              )}
+                            </div>
+                            
+                            {isExpert ? (
+                              <div className="mt-2 flex items-center gap-3">
+                                <div className="flex items-center text-[10px] bg-[#fdfaf5] border border-[#f5ede2] text-[#c4975d] font-bold px-2 py-1 rounded-lg">
+                                  <svg className="w-3 h-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                  ₹{skillMatch.rate}/{skillMatch.pricingType === 'hourly' ? 'hr' : 'fix'}
+                                </div>
+                                <div className="flex items-center text-[10px] text-gray-400 font-bold">
+                                  <svg className="w-3 h-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                  Est: {skillMatch.estimatedTime}h
+                                </div>
+                              </div>
+                            ) : (
+                              <p className="text-[10px] text-gray-400 font-medium uppercase mt-1 tracking-tight">General Interest • No specific registry entry</p>
+                            )}
                           </div>
+
                           {isSelected && (
-                            <div className="flex items-center bg-[#fdfaf5] border border-[#f5ede2] rounded-xl px-3 py-1 ml-4 group-focus-within:border-[#c4975d] transition-colors">
-                              <span className="text-[10px] font-bold text-[#c4975d] mr-2 uppercase tracking-tighter">Rate: ₹</span>
-                              <input 
-                                type="number"
-                                value={selectedWorker.price || formData.price}
-                                onChange={(e) => handleWorkerPriceChange(worker._id, e.target.value)}
-                                className="w-16 bg-transparent border-none focus:outline-none text-xs font-bold text-[#1a1a1a]"
-                                placeholder="Rate"
-                              />
+                            <div className="flex flex-col items-end gap-1 ml-4 animate-in fade-in slide-in-from-right duration-300">
+                              <label className="text-[8px] font-black text-gray-300 uppercase tracking-widest">Assigned Price</label>
+                              <div className="flex items-center bg-[#fdfaf5] border border-[#f5ede2] rounded-xl px-3 py-2 group-focus-within:border-[#c4975d] transition-colors">
+                                <span className="text-xs font-bold text-[#c4975d] mr-1">₹</span>
+                                <input 
+                                  type="number"
+                                  value={selectedWorker.price}
+                                  onChange={(e) => handleWorkerPriceChange(worker._id, e.target.value)}
+                                  className="w-16 bg-transparent border-none focus:outline-none text-sm font-black text-[#1a1a1a]"
+                                  placeholder="Rate"
+                                />
+                              </div>
+                              {isExpert && Number(selectedWorker.price) < skillMatch.rate && (
+                                <p className="text-[8px] text-red-400 font-bold">Below Market Rate (₹{skillMatch.rate})</p>
+                              )}
                             </div>
                           )}
                         </div>
                       </div>
                     );
                   })}
-                {allWorkers.filter(worker => {
-                  const category = formData.category.toLowerCase();
-                  return worker.skills?.some(skill => {
-                    const s = skill.toLowerCase();
-                    return s.includes(category) || category.includes(s) ||
-                      (category === 'carpentry' && s.includes('carpenter'));
-                  });
-                }).length === 0 && (
-                    <div className="text-center py-8 opacity-40">
-                      <svg width="40" height="40" className="mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2m12-16a4 4 0 11-8 0 4 4 0 018 0zm6 16v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
-                      <p className="text-xs font-medium uppercase tracking-widest italic">No matching professionals found</p>
-                    </div>
-                  )}
+                {allWorkers.length === 0 && (
+                  <div className="text-center py-12 opacity-30">
+                    <svg width="40" height="40" className="mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1"><path d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+                    <p className="text-xs font-bold uppercase tracking-[0.2em] italic">Personnel File Empty</p>
+                  </div>
+                )}
               </div>
             </div>
 

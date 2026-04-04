@@ -12,6 +12,28 @@ const {
 const getWorkerProfile = async (req, res) => {
   try {
     const worker = await User.findById(req.user._id).select('-password');
+    if (!worker) return res.status(404).json({ message: 'Worker not found' });
+
+    // 🔄 HYBRID MIGRATION: Convert legacy "skills" to new "skillRates"
+    let healed = false;
+    
+    // Fallback: If skills[] exists but skillRates[] is empty, migrate it
+    if (worker.skills && worker.skills.length > 0 && (!worker.skillRates || worker.skillRates.length === 0)) {
+      healed = true;
+      worker.skillRates = worker.skills.map(s => ({
+        skillName: typeof s === 'string' ? s : (s.name || "Unnamed"),
+        rate: typeof s === 'object' ? (s.rate || 0) : 0,
+        estimatedTime: 1,
+        pricingType: "hourly"
+      }));
+      // Note: We don't delete worker.skills immediately to avoid breaking other parts 
+      // but it's no longer used in the model we just updated.
+    }
+
+    if (healed) {
+      await worker.save();
+    }
+
     res.json(worker);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -41,18 +63,29 @@ const updateWorkerProfile = async (req, res) => {
       name: req.body.name.trim(),
       phone: req.body.phone.trim(),
       location: req.body.location.trim(),
-      hourlyRate: req.body.hourlyRate ? parseFloat(req.body.hourlyRate) : undefined,
-      serviceCharge: req.body.serviceCharge ? parseFloat(req.body.serviceCharge) : undefined
+      hourlyRate: req.body.hourlyRate ? Math.max(0, parseFloat(req.body.hourlyRate)) : 0,
+      serviceCharge: req.body.serviceCharge ? Math.max(0, parseFloat(req.body.serviceCharge)) : 0
     };
 
     // Handle skills
-    if (req.body.skills) {
+    if (req.body.skillRates) {
       try {
-        const parsedSkills = JSON.parse(req.body.skills);
-        updateData.skills = Array.isArray(parsedSkills) ? parsedSkills : [];
+        const parsedRates = typeof req.body.skillRates === 'string' ? JSON.parse(req.body.skillRates) : req.body.skillRates;
+        // 🔒 Senior Validation: skillName exists, rate >= 0, estimatedTime > 0
+        updateData.skillRates = Array.isArray(parsedRates) ? parsedRates.map(s => {
+          if (!s.skillName || s.skillName.trim() === '') {
+            throw new Error('Skill name is required for all rates.');
+          }
+          return {
+            skillName: s.skillName.trim(),
+            rate: Math.max(0, parseFloat(s.rate) || 0),
+            estimatedTime: Math.max(0.1, parseFloat(s.estimatedTime) || 1),
+            pricingType: ["hourly", "fixed"].includes(s.pricingType) ? s.pricingType : "hourly"
+          };
+        }) : [];
       } catch (e) {
-        console.error('Skills parse error:', e);
-        return res.status(400).json({ message: 'Invalid skills format' });
+        console.error('SkillRates parse error:', e);
+        return res.status(400).json({ message: 'Invalid skillRates: ' + e.message });
       }
     }
 

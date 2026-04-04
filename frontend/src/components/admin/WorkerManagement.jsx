@@ -262,7 +262,7 @@ const WorkerManagement = () => {
       return (
         worker.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         worker.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        worker.skills.some(skill => skill.toLowerCase().includes(searchTerm.toLowerCase()))
+        (worker.skills || []).some(skill => skill.toLowerCase().includes(searchTerm.toLowerCase()))
       );
     });
 
@@ -622,7 +622,7 @@ const WorkerManagement = () => {
                   <div className="flex-1">
                     <p className="text-xs text-gray-600 font-semibold uppercase mb-2">Skills</p>
                     <div className="flex flex-wrap gap-2">
-                      {currentWorker.skills.map((skill, idx) => (
+                      {(currentWorker.skills || []).map((skill, idx) => (
                         <span
                           key={idx}
                           className="px-3 py-1.5 bg-white text-gray-900 text-sm font-semibold rounded-lg border border-gray-200"

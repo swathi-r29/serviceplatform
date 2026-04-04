@@ -9,7 +9,7 @@ const WorkerProfile = () => {
     name: '',
     phone: '',
     location: '',
-    skills: '',
+    skillRates: [], // [{ skillName, rate, estimatedTime, pricingType }]
     isAvailable: true,
     coordinates: null,
     hourlyRate: '',
@@ -35,11 +35,11 @@ const WorkerProfile = () => {
         name: data.name || '',
         phone: data.phone || '',
         location: data.location || '',
-        skills: Array.isArray(data.skills) ? data.skills.join(', ') : '',
+        skillRates: Array.isArray(data.skillRates) ? data.skillRates : [],
         isAvailable: data.isAvailable !== undefined ? data.isAvailable : true,
         coordinates: data.coordinates || null,
-        hourlyRate: data.hourlyRate || '',
-        serviceCharge: data.serviceCharge || '',
+        hourlyRate: data.hourlyRate || 0,
+        serviceCharge: data.serviceCharge || 0,
         password: ''
       });
 
@@ -61,7 +61,28 @@ const WorkerProfile = () => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+    // Prevent negative numbers for rate fields
+    if ((name === 'hourlyRate' || name === 'serviceCharge') && parseFloat(value) < 0) return;
     setFormData({ ...formData, [name]: value });
+  };
+
+  const handleSkillChange = (index, field, value) => {
+    const updatedRates = [...formData.skillRates];
+    if ((field === 'rate' || field === 'estimatedTime') && parseFloat(value) < 0) return;
+    updatedRates[index] = { ...updatedRates[index], [field]: value };
+    setFormData({ ...formData, skillRates: updatedRates });
+  };
+
+  const addSkill = () => {
+    setFormData({
+      ...formData,
+      skillRates: [...formData.skillRates, { skillName: '', rate: 0, estimatedTime: 1, pricingType: 'hourly' }]
+    });
+  };
+
+  const removeSkill = (index) => {
+    const updatedRates = formData.skillRates.filter((_, i) => i !== index);
+    setFormData({ ...formData, skillRates: updatedRates });
   };
 
   const handleImageChange = (e) => {
@@ -105,13 +126,13 @@ const WorkerProfile = () => {
       submitData.append('phone', formData.phone.trim());
       submitData.append('location', formData.location.trim());
 
-      const skillsArray = formData.skills.split(',').map(skill => skill.trim()).filter(skill => skill !== '');
-      submitData.append('skills', JSON.stringify(skillsArray));
-
       submitData.append('isAvailable', formData.isAvailable.toString());
 
-      if (formData.hourlyRate) submitData.append('hourlyRate', formData.hourlyRate);
-      if (formData.serviceCharge) submitData.append('serviceCharge', formData.serviceCharge);
+      // 🚀 Hybrid Pricing Upgrade
+      submitData.append('skillRates', JSON.stringify(formData.skillRates));
+
+      if (formData.hourlyRate !== undefined) submitData.append('hourlyRate', formData.hourlyRate);
+      if (formData.serviceCharge !== undefined) submitData.append('serviceCharge', formData.serviceCharge);
 
       if (formData.coordinates) {
         submitData.append('coordinates', JSON.stringify(formData.coordinates));
@@ -308,30 +329,103 @@ const WorkerProfile = () => {
                     />
                   </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">
-                        Skills
-                      </label>
-                      <div className="mt-1 relative rounded-md shadow-sm">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <svg className="h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                          </svg>
-                        </div>
-                        <input
-                          type="text"
-                          name="skills"
-                          value={formData.skills}
-                          onChange={handleChange}
-                          className="focus:ring-[#e67e22] focus:border-[#e67e22] block w-full pl-10 sm:text-sm border-gray-300 rounded-lg py-3"
-                          placeholder="e.g. Plumbing, Carpentry"
-                        />
+                    {/* Hybrid Skill-Specific Rates Section */}
+                    <div className="sm:col-span-2 mt-4">
+                      <div className="flex items-center justify-between mb-4">
+                        <label className="block text-sm font-bold text-gray-700">
+                          Skill Pricing & Estimation
+                        </label>
+                        <button
+                          type="button"
+                          onClick={addSkill}
+                          className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded-full shadow-sm text-white bg-[#e67e22] hover:bg-[#d35400] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#e67e22]"
+                        >
+                          + Add Skill Rate
+                        </button>
+                      </div>
+                      
+                      <div className="space-y-4">
+                        {formData.skillRates.map((skill, index) => (
+                          <div key={index} className="bg-gray-50 p-4 rounded-xl border border-gray-200 animate-in fade-in zoom-in duration-200">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+                              <div className="flex-1">
+                                <label className="block text-[10px] uppercase font-bold text-gray-400 mb-1">Category</label>
+                                <select
+                                  value={skill.skillName}
+                                  onChange={(e) => handleSkillChange(index, 'skillName', e.target.value)}
+                                  className="block w-full sm:text-sm border-gray-300 rounded-lg py-2 focus:ring-[#e67e22] focus:border-[#e67e22]"
+                                >
+                                  <option value="">Select Category</option>
+                                  {['Plumbing', 'Electrical', 'Cleaning', 'Carpentry', 'Painting', 'AC Repair', 'Cooking', 'Pest Control', 'Appliance Repair', 'Moving & Packing', 'Home Tutoring', 'Salon & Spa', 'Gardening', 'Smart Home', 'Other'].map(cat => (
+                                    <option key={cat} value={cat}>{cat}</option>
+                                  ))}
+                                </select>
+                              </div>
+
+                              <div>
+                                <label className="block text-[10px] uppercase font-bold text-gray-400 mb-1">Pricing Type</label>
+                                <select
+                                  value={skill.pricingType}
+                                  onChange={(e) => handleSkillChange(index, 'pricingType', e.target.value)}
+                                  className="block w-full sm:text-sm border-gray-300 rounded-lg py-2 focus:ring-[#e67e22] focus:border-[#e67e22]"
+                                >
+                                  <option value="hourly">Hourly</option>
+                                  <option value="fixed">Fixed Price</option>
+                                </select>
+                              </div>
+
+                              <div className="relative">
+                                <label className="block text-[10px] uppercase font-bold text-gray-400 mb-1">Rate (₹)</label>
+                                <div className="absolute inset-y-0 left-0 pl-3 pt-4 flex items-center pointer-events-none text-gray-400 font-bold text-xs">
+                                  ₹
+                                </div>
+                                <input
+                                  type="number"
+                                  value={skill.rate}
+                                  onChange={(e) => handleSkillChange(index, 'rate', e.target.value)}
+                                  className="block w-full pl-7 sm:text-sm border-gray-300 rounded-lg py-2 focus:ring-[#e67e22] focus:border-[#e67e22]"
+                                  placeholder="0"
+                                  min="0"
+                                />
+                              </div>
+
+                              <div className="flex items-center gap-2">
+                                <div className="flex-1">
+                                  <label className="block text-[10px] uppercase font-bold text-gray-400 mb-1">Est. Time (Hrs)</label>
+                                  <input
+                                    type="number"
+                                    value={skill.estimatedTime}
+                                    onChange={(e) => handleSkillChange(index, 'estimatedTime', e.target.value)}
+                                    className="block w-full sm:text-sm border-gray-300 rounded-lg py-2 focus:ring-[#e67e22] focus:border-[#e67e22]"
+                                    placeholder="1"
+                                    min="0"
+                                    step="0.5"
+                                  />
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => removeSkill(index)}
+                                  className="text-red-500 hover:text-red-700 p-1 mb-1"
+                                >
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                                  </svg>
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                        {formData.skillRates.length === 0 && (
+                          <p className="text-sm text-gray-500 italic text-center py-4 bg-gray-50 rounded-xl border border-dashed border-gray-300">
+                            No skill rates added yet.
+                          </p>
+                        )}
                       </div>
                     </div>
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700">
-                        Hourly Rate (₹)
+                        General Hourly Rate (₹)
                       </label>
                       <div className="mt-1 relative rounded-md shadow-sm">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400 font-bold">
@@ -344,6 +438,7 @@ const WorkerProfile = () => {
                           onChange={handleChange}
                           className="focus:ring-[#e67e22] focus:border-[#e67e22] block w-full pl-10 sm:text-sm border-gray-300 rounded-lg py-3"
                           placeholder="0.00"
+                          min="0"
                         />
                       </div>
                     </div>

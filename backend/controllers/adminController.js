@@ -107,25 +107,63 @@ const updateUser = async (req, res) => {
     const { id } = req.params;
     const updates = req.body;
 
+    console.log(`🛠️ ADMIN: Updating user ${id}`);
+
     const user = await User.findById(id);
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
 
     // Prevent updating admin role or other sensitive fields
-    const allowedUpdates = ['name', 'email', 'phone', 'location', 'skills', 'isAvailable', 'profileImage'];
+    const allowedUpdates = ['name', 'email', 'phone', 'location', 'skills', 'isAvailable', 'profileImage', 'address', 'coordinates'];
     const filteredUpdates = {};
 
+    // Only update fields that have actually changed
     Object.keys(updates).forEach(key => {
       if (allowedUpdates.includes(key)) {
+        // Skip email if it's the same to avoid unique constraint trigger
+        if (key === 'email' && updates[key] === user.email) return;
+        
         filteredUpdates[key] = updates[key];
       }
     });
 
-    const updatedUser = await User.findByIdAndUpdate(id, filteredUpdates, { new: true }).select('-password');
+    if (Object.keys(filteredUpdates).length === 0) {
+        console.log('   ℹ️ No changes detected, skipping DB update');
+        return res.json({ message: 'No changes to update', user: user });
+    }
+
+    console.log('   📤 Fields to update:', Object.keys(filteredUpdates).join(', ') || 'None');
+
+    const updatedUser = await User.findByIdAndUpdate(id, filteredUpdates, { 
+        new: true, 
+        runValidators: true 
+    }).select('-password');
+    
     res.json({ message: 'User updated successfully', user: updatedUser });
+    console.log('   ✅ Update successful');
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
+    console.error('   ❌ Admin Update Error:', error.message);
+    
+    // Handle specific MongoDB errors
+    if (error.code === 11000) {
+        return res.status(400).json({ 
+            message: 'Email already exists. Please use a different email.',
+            error: 'Duplicate Key Error'
+        });
+    }
+
+    if (error.name === 'ValidationError') {
+        return res.status(400).json({ 
+            message: 'Validation failed', 
+            error: error.message 
+        });
+    }
+
+    res.status(500).json({ 
+        message: 'Server error during update', 
+        error: error.message 
+    });
   }
 };
 

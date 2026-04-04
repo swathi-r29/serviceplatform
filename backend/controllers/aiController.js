@@ -2,6 +2,7 @@ const { GoogleGenerativeAI } = require("@google/generative-ai");
 const Service = require("../models/Service");
 const Booking = require("../models/Booking");
 const User = require("../models/User");
+const { getServicePrice } = require("../utils/pricingHelper");
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
@@ -236,19 +237,21 @@ exports.predictFairPrice = async (req, res) => {
             console.log(`📏 CALC DIST:   ${distance} km`);
             console.log('------------------------------------\n');
 
-            const travelExpense = distance ? Math.max(50, Math.round(distance * 10)) : 50; // ₹10/km, min ₹50
+            const travelExpense = distance === null ? 30 : (distance <= 5 ? 30 : Math.round(distance * 10)); // ₹10/km, min ₹30
             
-            // ✅ Use service-specific price, then worker rate, then service base price
-            const workerCharge = p.serviceSpecificPrice || p.serviceCharge || p.hourlyRate || service.price;
+            // 🚀 Senior Refactor: Use centralized Pricing Helper for Comparison
+            const pricing = getServicePrice(p, service.category, service, travelExpense);
             
             return {
                 id: p._id,
                 name: p.name,
                 rating: p.rating || 4.5,
-                serviceCharge: workerCharge,      // ✅ per-worker rate
+                serviceCharge: pricing.basePrice,
                 travelExpense,
-                total: workerCharge + travelExpense,  // ✅ real comparison
-                distance: distance ? `${distance} km` : (!userCoords ? 'Set location for distance' : 'N/A')
+                total: pricing.total,
+                distance: distance ? `${distance} km` : (!userCoords ? 'Set location for distance' : 'N/A'),
+                estimatedTime: pricing.estimatedTime,
+                pricingType: pricing.pricingType
             };
         }).sort((a, b) => a.total - b.total).slice(0, 2);
 

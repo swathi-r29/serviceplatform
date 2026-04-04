@@ -104,13 +104,17 @@ const register = async (req, res) => {
     if (role === 'worker') {
       console.log('   Configuring worker-specific fields...');
       if (skills) {
+        let skillsArray = [];
         if (Array.isArray(skills)) {
-          userData.skills = skills.filter(s => s && s.trim());
+          skillsArray = skills;
         } else if (typeof skills === 'string') {
-          userData.skills = skills.split(',').map(s => s.trim()).filter(s => s);
-        } else {
-          userData.skills = [];
+          skillsArray = skills.split(',').map(s => s.trim()).filter(s => s);
         }
+        
+        userData.skills = skillsArray.map(s => ({
+          name: typeof s === 'object' ? (s.name || 'Unnamed Skill') : s,
+          rate: (typeof s === 'object' && s.rate !== undefined) ? Math.max(0, parseFloat(s.rate)) : 0
+        })).filter(s => s.name);
       } else {
         userData.skills = [];
       }

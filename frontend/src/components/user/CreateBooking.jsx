@@ -29,21 +29,31 @@ const CreateBooking = () => {
 
   const calculateDistance = (lat1, lon1, lat2, lon2) => {
     if (!lat1 || !lon1 || !lat2 || !lon2) return null;
+    const userLat = Number(lat1);
+    const userLng = Number(lon1);
+    const workerLat = Number(lat2);
+    const workerLng = Number(lon2);
+    
+    console.log(`📍 Haversine Calc: User(${userLat}, ${userLng}) <-> Pro(${workerLat}, ${workerLng})`);
+    
     const R = 6371; // km
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const dLat = (workerLat - userLat) * Math.PI / 180;
+    const dLon = (workerLng - userLng) * Math.PI / 180;
     const a = 
       Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+      Math.cos(userLat * Math.PI / 180) * Math.cos(workerLat * Math.PI / 180) * 
       Math.sin(dLon / 2) * Math.sin(dLon / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     const d = R * c;
-    return Math.round(d * 10) / 10;
+    const distance = Math.round(d * 10) / 10;
+    console.log(`   📏 Distance Result: ${distance} km`);
+    return distance;
   };
 
   const getTravelFee = (distance) => {
-    if (distance === null) return 50; // Fallback minimum for platform fees
-    return Math.max(50, Math.round(distance * 10)); // ₹10/km, min ₹50
+    if (distance === null) return 30; // Local minimum
+    if (distance <= 5) return 30; // Flat local fee
+    return Math.round(distance * 10); // Outstation rate: ₹10/km
   };
 
   const fetchDiscount = async () => {
@@ -216,17 +226,38 @@ const CreateBooking = () => {
   };
 
   const calculateTotal = () => {
-    if (!service) return { subtotal: 0, volumeDiscount: 0, firstTimeDiscount: 0, travelCharge: 0, total: 0 };
+    if (!service) return { basePrice: 0, volumeDiscount: 0, firstTimeDiscount: 0, travelCharge: 0, total: 0, estimatedTime: 1, pricingType: 'standard' };
     
     const selectedWorker = workersList.find(w => w._id === formData.workerId);
-    // ✅ Prioritize Service-Specific Rate, then Worker Profile Rate, then Service Base Price
-    const workerRate = selectedWorker?.serviceSpecificPrice 
-        || selectedWorker?.serviceCharge 
-        || selectedWorker?.hourlyRate 
-        || service.price;
     
-    const subtotalPrice = Number(workerRate);
-    
+    // 🚀 Senior Refactor: Hybrid Pricing Logic
+    const skill = selectedWorker?.skillRates?.find(s => 
+      s.skillName && s.skillName.toLowerCase() === service.category.toLowerCase()
+    );
+
+    let basePrice = 0;
+    let estimatedTime = 1;
+    let pricingType = 'standard';
+
+    if (skill && skill.rate > 0) {
+      if (skill.pricingType === "fixed") {
+        basePrice = skill.rate;
+        pricingType = "fixed";
+        estimatedTime = skill.estimatedTime || 1;
+      } else {
+        // "hourly" logic (rate * time)
+        basePrice = skill.rate * (skill.estimatedTime || 1);
+        pricingType = "hourly";
+        estimatedTime = skill.estimatedTime || 1;
+      }
+    } else {
+      // Fallback
+      basePrice = service.price;
+      pricingType = "standard";
+      estimatedTime = service.duration || 1;
+    }
+
+    // Calculate Travel Fee
     let travelCharge = 0;
     if (selectedWorker && formData.locationCoords) {
       const distance = calculateDistance(
@@ -236,26 +267,59 @@ const CreateBooking = () => {
       travelCharge = getTravelFee(distance);
     }
 
+    // Calculate Discounts
     let volDiscount = 0;
-    if (subtotalPrice > 5000) volDiscount = subtotalPrice * 0.20;
-    else if (subtotalPrice > 2000) volDiscount = subtotalPrice * 0.10;
+    if (basePrice > 5000) volDiscount = basePrice * 0.20;
+    else if (basePrice > 2000) volDiscount = basePrice * 0.10;
     
     const firstDiscount = discountInfo.isFirstBooking ? 200 : 0;
     
-    return {
-      subtotal: subtotalPrice,
-      volumeDiscount: volDiscount,
-      firstTimeDiscount: firstDiscount,
-      travelCharge: formData.locationCoords ? travelCharge : null,
-      total: Math.max(0, subtotalPrice + (formData.locationCoords ? travelCharge : 0) - volDiscount - firstDiscount)
+    const subtotalPrice = basePrice + (formData.locationCoords ? travelCharge : 0);
+    const finalTotal = Math.max(0, subtotalPrice - volDiscount - firstDiscount);
+
+    return { 
+      basePrice, 
+      volumeDiscount: volDiscount, 
+      firstTimeDiscount: firstDiscount, 
+      travelCharge: formData.locationCoords ? travelCharge : null, 
+      total: finalTotal,
+      estimatedTime,
+      pricingType,
+      skillRate: skill?.rate
     };
   };
 
-  const { subtotal, volumeDiscount, firstTimeDiscount, travelCharge, total } = calculateTotal();
+  const { basePrice, volumeDiscount, firstTimeDiscount, travelCharge, total, estimatedTime, pricingType, skillRate } = calculateTotal();
   
+  // ✅ Enhanced sorting logic for workersList
+  const sortedWorkers = [...workersList].sort((a, b) => {
+    if (!formData.locationCoords) return 0; // No sorting if location not picked
+    
+    const distA = calculateDistance(formData.locationCoords.lat, formData.locationCoords.lng, a.coordinates?.lat, a.coordinates?.lng);
+    const distB = calculateDistance(formData.locationCoords.lat, formData.locationCoords.lng, b.coordinates?.lat, b.coordinates?.lng);
+    
+    const rateA = a.serviceSpecificPrice || a.serviceCharge || a.hourlyRate || service.price;
+    const rateB = b.serviceSpecificPrice || b.serviceCharge || b.hourlyRate || service.price;
+    
+    const totalA = rateA + getTravelFee(distA);
+    const totalB = rateB + getTravelFee(distB);
+    
+    return totalA - totalB;
+  });
+
   // ✅ Derived values for pricing breakdown scope
   const selectedWorker = workersList.find(w => w._id === formData.workerId);
   const hasCustomRate = selectedWorker?.serviceCharge || selectedWorker?.hourlyRate;
+
+  // Calculate potential savings (compared to most expensive option)
+  const maxTotal = sortedWorkers.length > 1 
+    ? Math.max(...sortedWorkers.map(w => {
+        const d = calculateDistance(formData.locationCoords?.lat, formData.locationCoords?.lng, w.coordinates?.lat, w.coordinates?.lng);
+        return (w.serviceSpecificPrice || w.serviceCharge || w.hourlyRate || service.price) + getTravelFee(d);
+      }))
+    : total;
+  
+  const potentialSavings = Math.max(0, maxTotal - total);
 
   if (!service) return (
     <div className="flex justify-center items-center min-h-screen bg-gray-50">
@@ -342,7 +406,7 @@ const CreateBooking = () => {
 
               {workersList && workersList.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {workersList.map((worker, idx) => {
+                  {sortedWorkers.map((worker, idx) => {
                     const isSelected = formData.workerId === worker._id;
                     const distance = calculateDistance(
                       formData.locationCoords?.lat, formData.locationCoords?.lng,
@@ -498,15 +562,34 @@ const CreateBooking = () => {
                   </div>
 
                   {/* Price Breakdown */}
-                  <div className="pt-6 border-t border-gray-100">
-                    <div className="flex justify-between items-center mb-2 text-gray-600">
-                      <span>Service Base Rate</span>
-                      <span>₹{subtotal}</span>
+                  <div className="pt-6 border-t border-gray-100 space-y-4">
+                    <div className="flex justify-between items-start text-gray-600">
+                      <div>
+                        <p className="text-sm">Service Charge ({pricingType})</p>
+                        {pricingType === 'hourly' && (
+                          <p className="text-[10px] text-gray-400 font-medium italic">₹{skillRate || '---'} × {estimatedTime} hrs</p>
+                        )}
+                      </div>
+                      <span className="font-bold text-gray-900">₹{basePrice.toLocaleString()}</span>
+                    </div>
+
+                    {pricingType === 'hourly' && (
+                      <div className="flex justify-between items-center text-sm text-gray-600">
+                        <span>Estimated Duration</span>
+                        <span className="font-medium text-gray-900">{estimatedTime} Hours</span>
+                      </div>
+                    )}
+
+                    <div className="flex justify-between items-center text-gray-600">
+                      <span className="text-sm">Travel Fee</span>
+                      <span className={travelCharge !== null ? "font-bold text-blue-600" : "text-gray-400 italic text-xs"}>
+                        {travelCharge !== null ? `₹${travelCharge.toLocaleString()}` : 'Select Location'}
+                      </span>
                     </div>
 
                     {firstTimeDiscount > 0 && (
-                      <div className="flex justify-between items-center mb-2 text-pink-600 font-medium bg-pink-50 p-2 rounded-lg border border-pink-100">
-                        <span className="flex items-center gap-1 text-sm">
+                      <div className="flex justify-between items-center text-pink-600 font-medium bg-pink-50 p-2 rounded-lg border border-pink-100">
+                        <span className="flex items-center gap-1 text-xs">
                           <FaPercentage className="text-pink-400" />
                           First User Offer
                         </span>
@@ -515,21 +598,14 @@ const CreateBooking = () => {
                     )}
 
                     {volumeDiscount > 0 && (
-                      <div className="flex justify-between items-center mb-2 text-green-600 font-medium bg-green-50 p-2 rounded-lg border border-green-100">
-                        <span className="flex items-center gap-1 text-sm">
+                      <div className="flex justify-between items-center text-green-600 font-medium bg-green-50 p-2 rounded-lg border border-green-100">
+                        <span className="flex items-center gap-1 text-xs">
                           <FaPercentage className="text-green-400" />
-                          Volume Reward ({subtotal > 5000 ? '20%' : '10%'})
+                          Volume Reward
                         </span>
-                        <span className="font-bold">-₹{volumeDiscount}</span>
+                        <span className="font-bold">-₹{volumeDiscount.toLocaleString()}</span>
                       </div>
                     )}
-
-                    <div className="flex justify-between items-center mb-2 text-gray-600">
-                      <span>Pro Travel Expense</span>
-                      <span className={travelCharge !== null ? "text-blue-600 font-bold" : "text-gray-400 italic text-xs"}>
-                        {travelCharge !== null ? `₹${travelCharge}` : 'Select Location on Map'}
-                      </span>
-                    </div>
 
                     {!hasCustomRate && (
                       <div className="flex items-center gap-2 mt-4 p-3 bg-blue-50/50 border border-blue-100 rounded-xl text-blue-600">
@@ -540,10 +616,27 @@ const CreateBooking = () => {
                       </div>
                     )}
 
-                    <div className="flex justify-between items-center pt-4 border-t border-gray-100">
-                      <span className="text-lg font-bold text-gray-900">Total</span>
-                      <span className="text-2xl font-bold text-blue-600">₹{total}</span>
+                    <div className="pt-4 border-t border-gray-100">
+                      <div className="flex justify-between items-center">
+                        <span className="text-lg font-bold text-gray-900">Total Price</span>
+                        <div className="text-right">
+                          <span className="text-3xl font-black text-blue-600 tracking-tight">₹{total.toLocaleString()}</span>
+                          {potentialSavings > 0 && (
+                            <p className="text-[10px] text-green-600 font-bold bg-green-50 px-2 py-1 rounded mt-2">
+                              Saving ₹{Math.round(potentialSavings).toLocaleString()} vs. other options
+                            </p>
+                          )}
+                        </div>
+                      </div>
                     </div>
+
+                    <div className="p-3 bg-blue-50/50 rounded-xl border border-blue-100 flex gap-2 items-start">
+                      <FaInfoCircle size={14} className="text-blue-500 mt-0.5 shrink-0" />
+                      <p className="text-[10px] text-blue-700 font-medium leading-relaxed italic">
+                        "Estimated price. Final cost may vary based on actual work."
+                      </p>
+                    </div>
+                  </div>
 
                     <div className="mt-6">
                         {!service.aiAnalysis ? (
@@ -639,13 +732,10 @@ const CreateBooking = () => {
                                 <div className="absolute bottom-[-20px] left-[-20px] w-24 h-24 bg-indigo-400/10 blur-3xl rounded-full"></div>
                             </div>
                         )}
-
                     </div>
 
-                  </div>
-
-                  {/* Action Buttons */}
-                  <div className="flex flex-col gap-3">
+                    {/* Action Buttons */}
+                    <div className="flex flex-col gap-3">
                     <button
                       type="button"
                       onClick={handleAddToCart}

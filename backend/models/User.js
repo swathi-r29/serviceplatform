@@ -37,7 +37,29 @@ const userSchema = new mongoose.Schema({
   },
   address: { type: String },
   profileImage: { type: String, default: '' },
-  skills: [{ type: String }],
+  skillRates: [
+    {
+      skillName: {
+        type: String,
+        required: true
+      },
+      rate: {
+        type: Number,
+        required: true,
+        min: 0
+      },
+      estimatedTime: {
+        type: Number,   // in hours
+        default: 1,
+        min: 0.1
+      },
+      pricingType: {
+        type: String,
+        enum: ["hourly", "fixed"],
+        default: "hourly"
+      }
+    }
+  ],
   location: { type: String },
   coordinates: {
     lat: { type: Number },
@@ -54,8 +76,8 @@ const userSchema = new mongoose.Schema({
   rating: { type: Number, default: 0 },
   reviewCount: { type: Number, default: 0 },
   isVerified: { type: Boolean, default: true },
-  hourlyRate: { type: Number },
-  serviceCharge: { type: Number },
+  hourlyRate: { type: Number, min: 0, default: 0 },
+  serviceCharge: { type: Number, min: 0, default: 0 },
   otp: { type: String },
   otpExpires: { type: Date }
 }, { timestamps: true });
