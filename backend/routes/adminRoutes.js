@@ -22,7 +22,7 @@ if (typeof approveWorker !== 'function') {
 const { getChartData } = require('../controllers/analyticsController');
 const { protect } = require('../middleware/auth');
 const { checkRole } = require('../middleware/roleCheck');
-const { ensureSingleAdmin, preventAdminModification } = require('../middleware/adminCheck');
+const { ensureSingleAdmin, preventAdminModification } = require('../middleware/admincheck');
 const User = require('../models/User');
 const router = express.Router();
 
