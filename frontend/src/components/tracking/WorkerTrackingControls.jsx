@@ -10,7 +10,7 @@ import { useLocationBroadcast } from '../../hooks/useLocationBroadcast';
  *   workerId      — string (current worker's _id)
  */
 const WorkerTrackingControls = ({ bookingId, bookingStatus, workerId }) => {
-  const isActive = bookingStatus === 'on-the-way';
+  const isActive = ['on-the-way', 'in-progress'].includes(bookingStatus);
 
   const { isTracking, currentPosition, startTracking, stopTracking, error } =
     useLocationBroadcast(bookingId, workerId, isActive);

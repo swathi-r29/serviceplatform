@@ -12,8 +12,8 @@ const Register = () => {
   });
   const categories = [
     'Plumbing', 'Electrical', 'Cleaning', 'Carpentry', 'Painting', 
-    'AC Repair', 'Cooking', 'Pest Control', 'Appliance Repair', 
-    'Moving & Packing', 'Home Tutoring', 'Salon & Spa', 
+    'Pest Control', 'Appliance Repair', 
+    'Packers & Movers', 'Salon Services', 
     'Gardening', 'Smart Home', 'Other'
   ];
   const [error, setError] = useState('');

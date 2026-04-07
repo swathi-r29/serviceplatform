@@ -163,7 +163,9 @@ const verifyAndCreateBooking = async (req, res) => {
       address,
       locationCoords,
       notes,
-      totalAmount
+      totalAmount,
+      baseServicePrice,
+      travelFee
     } = bookingDetails || {};
 
     if (!serviceId || !workerId || !scheduledDate || !scheduledTime) {
@@ -187,6 +189,8 @@ const verifyAndCreateBooking = async (req, res) => {
       notes: notes || '',
       locationCoords: parsedCoords || undefined,
       totalAmount: Number(totalAmount) || 0,
+      baseServicePrice: Number(baseServicePrice) || 0,
+      travelFee: Number(travelFee) || 0,
       status: 'pending',
       paymentStatus: 'paid',
       razorpayOrderId: razorpay_order_id,

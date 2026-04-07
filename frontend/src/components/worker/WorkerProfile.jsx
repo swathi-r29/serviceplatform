@@ -352,7 +352,7 @@ const WorkerProfile = () => {
                                   className="block w-full sm:text-sm border-gray-300 rounded-lg py-2 focus:ring-[#e67e22] focus:border-[#e67e22]"
                                 >
                                   <option value="">Select Category</option>
-                                  {['Plumbing', 'Electrical', 'Cleaning', 'Carpentry', 'Painting', 'AC Repair', 'Cooking', 'Pest Control', 'Appliance Repair', 'Moving & Packing', 'Home Tutoring', 'Salon & Spa', 'Gardening', 'Smart Home', 'Other'].map(cat => (
+                                  {['Plumbing', 'Electrical', 'Cleaning', 'Carpentry', 'Painting', 'Pest Control', 'Appliance Repair', 'Packers & Movers', 'Salon Services', 'Gardening', 'Smart Home', 'Other'].map(cat => (
                                     <option key={cat} value={cat}>{cat}</option>
                                   ))}
                                 </select>

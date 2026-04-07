@@ -3,14 +3,21 @@ import { useWebRTC } from '../../context/WebRTCContext';
 import { FaPhoneSlash, FaMicrophone, FaVideo, FaVideoSlash, FaMicrophoneSlash } from 'react-icons/fa';
 
 const VideoCallModal = ({ isOpen, onClose }) => {
-    const { stream, userVideo, myVideo, setMyVideo, setUserVideo, callAccepted, callEnded, leaveCall, call } = useWebRTC();
+    const { stream, remoteStream, userVideo, myVideo, setMyVideo, setUserVideo, callAccepted, callEnded, leaveCall, call } = useWebRTC();
     const myVideoRef = useRef();
     const userVideoRef = useRef();
 
     useEffect(() => {
         if (myVideoRef.current) setMyVideo(myVideoRef.current);
         if (userVideoRef.current) setUserVideo(userVideoRef.current);
-    }, [setMyVideo, setUserVideo]);
+    }, [setMyVideo, setUserVideo, callAccepted]);
+
+    useEffect(() => {
+        if (remoteStream && userVideoRef.current) {
+            userVideoRef.current.srcObject = remoteStream;
+            console.log("[WebRTC] Attached remote stream to userVideo element");
+        }
+    }, [remoteStream]);
 
     useEffect(() => {
         if (stream && myVideoRef.current) {

@@ -1,4 +1,11 @@
 const Notification = require('../models/Notification');
+const User = require('../models/User');
+const Booking = require('../models/Booking');
+const { 
+  sendNewBookingEmail, 
+  sendBookingAcceptedEmail, 
+  sendServiceCompletedEmail 
+} = require('./mailHelper');
 
 const createNotification = async (userId, title, message, type, relatedId = null, relatedModel = null, io = null) => {
   try {
@@ -28,6 +35,27 @@ const notifyBookingCreated = async (workerId, bookingId, userName, serviceName, 
     'Booking',
     io
   );
+
+  // Send Email to Worker
+  try {
+    const worker = await User.findById(workerId);
+    const booking = await Booking.findById(bookingId);
+    if (worker && booking) {
+      const date = new Date(booking.scheduledDate).toLocaleDateString('en-IN', {
+        day: '2-digit', month: 'short', year: 'numeric'
+      });
+      await sendNewBookingEmail(
+        worker.email,
+        worker.name,
+        userName,
+        serviceName,
+        date,
+        booking.scheduledTime
+      );
+    }
+  } catch (emailError) {
+    console.error('Failed to send booking creation email:', emailError.message);
+  }
 };
 
 const notifyBookingAccepted = async (userId, bookingId, workerName, serviceName, io = null) => {
@@ -40,6 +68,22 @@ const notifyBookingAccepted = async (userId, bookingId, workerName, serviceName,
     'Booking',
     io
   );
+
+  // Send Email to User
+  try {
+    const user = await User.findById(userId);
+    if (user) {
+      await sendBookingAcceptedEmail(
+        user.email,
+        user.name,
+        workerName,
+        serviceName,
+        bookingId
+      );
+    }
+  } catch (emailError) {
+    console.error('Failed to send booking acceptance email:', emailError.message);
+  }
 };
 
 const notifyBookingRejected = async (userId, bookingId, workerName, serviceName) => {
@@ -75,6 +119,21 @@ const notifyServiceCompleted = async (userId, bookingId, serviceName, io = null)
     'Booking',
     io
   );
+
+  // Send Email to User
+  try {
+    const user = await User.findById(userId);
+    if (user) {
+      await sendServiceCompletedEmail(
+        user.email,
+        user.name,
+        serviceName,
+        bookingId
+      );
+    }
+  } catch (emailError) {
+    console.error('Failed to send service completion email:', emailError.message);
+  }
 };
 
 const notifyWorkerOnTheWay = async (userId, bookingId, workerName, serviceName, io = null) => {

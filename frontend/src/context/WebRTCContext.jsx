@@ -17,6 +17,7 @@ export const WebRTCProvider = ({ children }) => {
     const [name, setName] = useState('');
     const [myVideo, setMyVideo] = useState(null);
     const [userVideo, setUserVideo] = useState(null);
+    const [remoteStream, setRemoteStream] = useState(null);
     const [receivingCall, setReceivingCall] = useState(false);
     const [isCallModalOpen, setIsCallModalOpen] = useState(false);
 
@@ -35,32 +36,58 @@ export const WebRTCProvider = ({ children }) => {
         };
     }, [socket]);
 
-    const answerCall = () => {
+    const answerCall = async (options = { video: true, audio: true }) => {
         setCallAccepted(true);
+        
+        let currentStream = stream;
+        if (!currentStream) {
+            try {
+                currentStream = await navigator.mediaDevices.getUserMedia(options);
+                setStream(currentStream);
+                if (myVideo) myVideo.srcObject = currentStream;
+            } catch (err) {
+                console.error("Failed to get stream during answer:", err);
+                return;
+            }
+        }
 
-        const peer = new Peer({ initiator: false, trickle: false, stream });
+        const peer = new Peer({ initiator: false, trickle: false, stream: currentStream });
 
         peer.on('signal', (data) => {
             socket.emit('answer-call', { signal: data, to: call.from });
         });
 
-        peer.on('stream', (currentStream) => {
-            if (userVideo) userVideo.srcObject = currentStream;
+        peer.on('stream', (recvStream) => {
+            setRemoteStream(recvStream);
+            if (userVideo) userVideo.srcObject = recvStream;
         });
 
         peer.signal(call.signal);
         connectionRef.current = peer;
     };
 
-    const callUser = (id) => {
-        const peer = new Peer({ initiator: true, trickle: false, stream });
+    const callUser = async (id, options = { video: true, audio: true }) => {
+        let currentStream = stream;
+        if (!currentStream) {
+            try {
+                currentStream = await navigator.mediaDevices.getUserMedia(options);
+                setStream(currentStream);
+                if (myVideo) myVideo.srcObject = currentStream;
+            } catch (err) {
+                console.error("Failed to get stream during callUser:", err);
+                return;
+            }
+        }
+
+        const peer = new Peer({ initiator: true, trickle: false, stream: currentStream });
 
         peer.on('signal', (data) => {
             socket.emit('call-user', { userToCall: id, signalData: data, from: user._id, name: user.name });
         });
 
-        peer.on('stream', (currentStream) => {
-            if (userVideo) userVideo.srcObject = currentStream;
+        peer.on('stream', (recvStream) => {
+            setRemoteStream(recvStream);
+            if (userVideo) userVideo.srcObject = recvStream;
         });
 
         socket.on('call-accepted', (signal) => {
@@ -77,9 +104,9 @@ export const WebRTCProvider = ({ children }) => {
         window.location.reload(); // Hard reset for stream cleanup
     };
 
-    const startStream = async () => {
+    const startStream = async (options = { video: true, audio: true }) => {
         try {
-            const currentStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+            const currentStream = await navigator.mediaDevices.getUserMedia(options);
             setStream(currentStream);
             if (myVideo) myVideo.srcObject = currentStream;
         } catch (error) {
@@ -96,6 +123,7 @@ export const WebRTCProvider = ({ children }) => {
             userVideo,
             setMyVideo,
             setUserVideo,
+            remoteStream,
             stream,
             name,
             setName,

@@ -58,10 +58,10 @@ const ServiceCard = ({ service, favorites = [] }) => {
         {/* PRICING AND ACTIONS */}
 
         <div className="mt-auto pt-4 border-t border-gray-50 flex items-end justify-between">
-          <div className="flex flex-col">
-            <span className="text-[10px] text-gray-400 uppercase font-bold tracking-widest mb-1">Starting from</span>
-            <span className="text-3xl font-bold text-[#d4a76d] leading-none">
-              ₹{service.price}
+          <div className="flex flex-col text-left">
+            <span className="text-[11px] text-gray-400 uppercase font-extrabold tracking-widest mb-1">Starting from</span>
+            <span className="text-3xl font-black text-[#d4a76d] leading-none transition-all duration-300 group-hover:scale-110 origin-left">
+              ₹{service.startingPrice || service.price}
             </span>
           </div>
 

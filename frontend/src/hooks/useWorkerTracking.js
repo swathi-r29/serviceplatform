@@ -9,7 +9,7 @@ const TRACKING_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
  *
  * @param {string}  bookingId  — MongoDB _id of the booking to watch
  * @param {string}  userId     — current authenticated user's _id
- * @param {boolean} isActive   — only connect when booking status is 'on-the-way'
+ * @param {boolean} isActive   — only connect when booking status is 'on-the-way' or 'in-progress'
  * @returns {{ workerLocation, connectionStatus, lastUpdated }}
  *   connectionStatus: 'idle' | 'waiting' | 'live' | 'lost' | 'stopped'
  */

@@ -2,7 +2,7 @@ const { GoogleGenerativeAI } = require("@google/generative-ai");
 const Service = require("../models/Service");
 const Booking = require("../models/Booking");
 const User = require("../models/User");
-const { getServicePrice } = require("../utils/pricingHelper");
+const { getServicePrice, getStartingPriceForService, calculateTravelFee } = require("../utils/pricingHelper");
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
@@ -15,7 +15,7 @@ const getSeasonalContext = () => {
         winter: [9, 10, 11, 0, 1] // Oct-Feb
     };
 
-    if (seasons.summer.includes(month)) return "Summer - High demand for AC Repair, Pest Control, and Cooling solutions.";
+    if (seasons.summer.includes(month)) return "Summer - High demand for Appliance Repair, Pest Control, and Cooling solutions.";
     if (seasons.monsoon.includes(month)) return "Monsoon - High demand for Roof Leakage, Cleaning, and Electric maintenance.";
     return "Winter - Demand for Geyser repair, Painting, and General Home Maintenance.";
 };
@@ -95,7 +95,7 @@ exports.smartSearch = async (req, res) => {
         const { query } = req.body;
         if (!query) return res.status(400).json({ message: "Query is required" });
 
-        const categories = ['Plumbing', 'Electrical', 'Cleaning', 'Carpentry', 'Painting', 'AC Repair', 'Cooking', 'Pest Control', 'Appliance Repair', 'Moving & Packing', 'Home Tutoring', 'Salon & Spa', 'Gardening', 'Smart Home', 'Other'];
+        const categories = ['Plumbing', 'Electrical', 'Cleaning', 'Carpentry', 'Painting', 'Pest Control', 'Appliance Repair', 'Packers & Movers', 'Salon Services', 'Gardening', 'Smart Home', 'Other'];
 
         try {
             const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
@@ -131,7 +131,19 @@ exports.smartSearch = async (req, res) => {
                 isActive: true 
             });
 
-            return res.json({ searchParams, services });
+            const processedServices = services.map(s => {
+                const serviceObj = s.toObject();
+                // 🩹 HEAL LEGACY DATA
+                const healedWorkers = (serviceObj.workers || []).map(w => {
+                    if (w && typeof w === 'object' && (w.worker || w._id)) return w;
+                    return { worker: w, price: serviceObj.price || 0 };
+                });
+                serviceObj.workers = healedWorkers;
+                serviceObj.startingPrice = getStartingPriceForService(serviceObj);
+                return serviceObj;
+            });
+
+            return res.json({ searchParams, services: processedServices });
 
         } catch (aiError) {
             console.error("AI Search Gemini Error, using Fallback:", aiError.message);
@@ -290,7 +302,7 @@ exports.predictFairPrice = async (req, res) => {
             console.log(`📏 CALC DIST:   ${distanceKm} km`);
             console.log('------------------------------------\n');
 
-            const travelExpense = distanceKm === null ? 30 : (distanceKm <= 5 ? 30 : Math.round(distanceKm * 10));
+            const travelExpense = calculateTravelFee(distanceKm);
 
             // skillPricing-aware rateType
             const skillEntry = p.skillPricing?.find(

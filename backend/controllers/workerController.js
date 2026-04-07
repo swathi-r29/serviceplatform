@@ -8,6 +8,7 @@ const {
   notifyWorkerOnTheWay,
   notifyServiceInProgress
 } = require('../utils/notificationHelper');
+const { getServicePrice } = require('../utils/pricingHelper');
 
 const getWorkerProfile = async (req, res) => {
   try {
@@ -398,7 +399,19 @@ const getWorkersByCategory = async (req, res) => {
     }).select('-password');
 
     console.log(`✅ Found ${workers.length} workers for "${category}"`);
-    res.json(workers);
+
+    // 🚀 Senior Refactor: Compute authoritative price for each worker
+    const workersWithPricing = workers.map(w => {
+      const pricing = getServicePrice(w, category, null, 0);
+      return {
+        ...w.toObject(),
+        activePrice: pricing.basePrice,
+        pricingType: pricing.pricingType,
+        isCustomRate: pricing.isCustomRate
+      };
+    });
+
+    res.json(workersWithPricing);
   } catch (error) {
     console.error('❌ Error in getWorkersByCategory:', error);
     res.status(500).json({ message: error.message });

@@ -31,7 +31,8 @@ const IncomingCallAlert = ({ onAnswer }) => {
                     </button>
                     <button 
                         onClick={() => {
-                            answerCall();
+                            const isWorker = JSON.parse(localStorage.getItem('user'))?.role === 'worker';
+                            answerCall(isWorker ? { video: false, audio: true } : { video: true, audio: true });
                             setReceivingCall(false);
                             onAnswer(); // Opens the VideoCallModal
                         }}

@@ -46,11 +46,25 @@ const AddService = () => {
       } else {
         // 🚀 Senior Logic: Auto-Sync Price from Worker's Skill Registry
         const worker = allWorkers.find(w => w._id === workerId);
-        const skillMatch = worker?.skillRates?.find(s =>
-          s.skillName.toLowerCase() === prev.category.toLowerCase()
+        
+        // 1. Try new skillPricing system first
+        const skillPricing = worker?.skillPricing?.find(sp => 
+          sp.skill?.toLowerCase() === prev.category?.toLowerCase() && sp.isActive
         );
 
-        const initialPrice = skillMatch ? skillMatch.rate : (prev.price || 0);
+        // 2. Try legacy skillRates system second
+        const legacySkill = worker?.skillRates?.find(s => 
+          s.skillName?.toLowerCase() === prev.category?.toLowerCase()
+        );
+
+        let initialPrice = prev.price || 0;
+        
+        // 🚀 Senior Refactor: Intelligent Defaulting
+        const workerRate = skillPricing?.rate || legacySkill?.rate || 0;
+        
+        if (!initialPrice || (workerRate > initialPrice)) {
+          if (workerRate > 0) initialPrice = workerRate;
+        }
 
         return {
           ...prev,
@@ -168,7 +182,7 @@ const AddService = () => {
                     onChange={handleChange}
                     className="w-full px-5 py-4 bg-[#fdfaf5]/50 border-2 border-transparent border-b-[#f5ede2] rounded-xl focus:border-[#c4975d] focus:bg-white focus:outline-none transition-all appearance-none font-medium text-[#1a1a1a]"
                   >
-                    {['Plumbing', 'Electrical', 'Cleaning', 'Carpentry', 'Painting', 'AC Repair', 'Pest Control', 'Appliance Repair', 'Moving & Packing', 'Home Tutoring', 'Salon & Spa', 'Gardening', 'Smart Home', 'Other'].map(cat => (
+                    {['Plumbing', 'Electrical', 'Cleaning', 'Carpentry', 'Painting', 'Pest Control', 'Appliance Repair', 'Packers & Movers', 'Salon Services', 'Gardening', 'Smart Home', 'Other'].map(cat => (
                       <option key={cat} value={cat}>{cat}</option>
                     ))}
                   </select>

@@ -2,7 +2,7 @@ const Booking = require('../models/Booking');
 const Service = require('../models/Service');
 const User = require('../models/User');
 const { notifyBookingCreated } = require('../utils/notificationHelper');
-const { getServicePrice } = require('../utils/pricingHelper');
+const { getServicePrice, calculateTravelFee } = require('../utils/pricingHelper');
 
 const calculateDistance = (lat1, lon1, lat2, lon2) => {
   if (!lat1 || !lon1 || !lat2 || !lon2) return null;
@@ -22,11 +22,7 @@ const calculateDistance = (lat1, lon1, lat2, lon2) => {
   return distance;
 };
 
-const getTravelFee = (distance) => {
-  if (distance === null) return 30; // Base rate for local/platform fee
-  if (distance <= 5) return 30; // Local flat fee
-  return Math.round(distance * 10); // Outstation: ₹10/km
-};
+// Removed local getTravelFee, using centralized calculateTravelFee from pricingHelper
 
 const createBooking = async (req, res) => {
   try {
@@ -47,7 +43,7 @@ const createBooking = async (req, res) => {
       locationCoords?.lat, locationCoords?.lng,
       worker.coordinates?.lat, worker.coordinates?.lng
     );
-    const travelCharge = getTravelFee(distance);
+    const travelCharge = calculateTravelFee(distance);
 
     // 🚀 Senior Refactor: Use centralized Pricing Helper
     const priceResult = getServicePrice(worker, service.category, service, travelCharge);
@@ -77,6 +73,8 @@ const createBooking = async (req, res) => {
       address,
       notes,
       totalAmount,
+      baseServicePrice: priceResult.basePrice,
+      travelFee: travelCharge,
       status: 'pending',
       statusHistory: [{ status: 'pending', comment: 'Booking requested by user' }],
       locationCoords

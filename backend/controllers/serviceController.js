@@ -1,11 +1,31 @@
 const Service = require('../models/Service');
 const mongoose = require('mongoose');
+const { getStartingPriceForService } = require('../utils/pricingHelper');
 
-// Get all unique categories
+// Get all unique categories (Merged with a master list)
 exports.getCategories = async (req, res) => {
   try {
-    const categories = await Service.distinct('category');
-    res.json(categories);
+    const masterCategories = [
+      'Plumbing',
+      'Electrical',
+      'Cleaning',
+      'Carpentry',
+      'Painting',
+      'Pest Control',
+      'Appliance Repair',
+      'Salon Services',
+      'Packers & Movers',
+      'Gardening',
+      'Smart Home'
+    ];
+
+    const dbCategories = await Service.distinct('category');
+    
+    // Merge, remove duplicates, and ensure 'AC Repair' is removed (merged into Appliance Repair)
+    const allCategories = [...new Set([...masterCategories, ...dbCategories])]
+      .filter(cat => cat !== 'AC Repair');
+    
+    res.json(allCategories);
   } catch (error) {
     console.error('Error fetching categories:', error);
     res.status(500).json({ message: 'Error fetching categories', error: error.message });
@@ -16,7 +36,24 @@ exports.getCategories = async (req, res) => {
 exports.getAllServices = async (req, res) => {
   try {
     const services = await Service.find().sort({ createdAt: -1 });
-    res.json(services);
+    
+    // 🚀 Senior Marketplace Logic: Calculate "Starting from" prices for all listings
+    const processedServices = services.map(s => {
+      const serviceObj = s.toObject();
+      
+      // 🩹 HEAL LEGACY DATA: If workers is just an array of IDs, convert to new format
+      const healedWorkers = (serviceObj.workers || []).map(w => {
+        if (w && typeof w === 'object' && (w.worker || w._id)) return w;
+        return { worker: w, price: serviceObj.price || 0 };
+      });
+      serviceObj.workers = healedWorkers;
+      
+      // Calculate Starting Price
+      serviceObj.startingPrice = getStartingPriceForService(serviceObj);
+      return serviceObj;
+    });
+
+    res.json(processedServices);
   } catch (error) {
     console.error('Error fetching services:', error);
     res.status(500).json({ message: 'Error fetching services', error: error.message });
@@ -36,7 +73,21 @@ exports.getServicesByCategory = async (req, res) => {
       category: { $regex: new RegExp(`^${categoryName}$`, 'i') }
     }).sort({ createdAt: -1 });
 
-    res.json(services);
+    const processedServices = services.map(s => {
+      const serviceObj = s.toObject();
+      
+      // 🩹 HEAL LEGACY DATA
+      const healedWorkers = (serviceObj.workers || []).map(w => {
+        if (w && typeof w === 'object' && (w.worker || w._id)) return w;
+        return { worker: w, price: serviceObj.price || 0 };
+      });
+      serviceObj.workers = healedWorkers;
+      
+      serviceObj.startingPrice = getStartingPriceForService(serviceObj);
+      return serviceObj;
+    });
+
+    res.json(processedServices);
   } catch (error) {
     console.error('Error fetching services by category:', error);
     res.status(500).json({ message: 'Error fetching services', error: error.message });
@@ -116,7 +167,7 @@ exports.createService = async (req, res) => {
       return res.status(400).json({ message: 'Duration must be a positive number' });
     }
 
-    const validCategories = ['Plumbing', 'Electrical', 'Cleaning', 'Carpentry', 'Painting', 'AC Repair', 'Cooking', 'Pest Control', 'Appliance Repair', 'Moving & Packing', 'Home Tutoring', 'Salon & Spa', 'Gardening', 'Smart Home', 'Other'];
+    const validCategories = ['Plumbing', 'Electrical', 'Cleaning', 'Carpentry', 'Painting', 'Pest Control', 'Appliance Repair', 'Packers & Movers', 'Salon Services', 'Gardening', 'Smart Home', 'Other'];
     if (!validCategories.includes(category)) {
       console.log('❌ VALIDATION FAILED: Invalid category');
       return res.status(400).json({ message: 'Invalid category' });
@@ -224,7 +275,7 @@ exports.updateService = async (req, res) => {
       return res.status(400).json({ message: 'Duration must be a positive number' });
     }
 
-    const validCategories = ['Plumbing', 'Electrical', 'Cleaning', 'Carpentry', 'Painting', 'AC Repair', 'Cooking', 'Pest Control', 'Appliance Repair', 'Moving & Packing', 'Home Tutoring', 'Salon & Spa', 'Gardening', 'Smart Home', 'Other'];
+    const validCategories = ['Plumbing', 'Electrical', 'Cleaning', 'Carpentry', 'Painting', 'Pest Control', 'Appliance Repair', 'Packers & Movers', 'Salon Services', 'Gardening', 'Smart Home', 'Other'];
     if (!validCategories.includes(category)) {
       return res.status(400).json({ message: 'Invalid category' });
     }
@@ -284,7 +335,16 @@ exports.updateService = async (req, res) => {
       return res.status(404).json({ message: 'Service not found' });
     }
 
-    res.json(service);
+    const serviceObj = service.toObject();
+    // 🩹 HEAL LEGACY DATA
+    const healedWorkers = (serviceObj.workers || []).map(w => {
+      if (w && typeof w === 'object' && (w.worker || w._id)) return w;
+      return { worker: w, price: serviceObj.price || 0 };
+    });
+    serviceObj.workers = healedWorkers;
+    serviceObj.startingPrice = getStartingPriceForService(serviceObj);
+
+    res.json(serviceObj);
   } catch (error) {
     console.error('❌ ERROR UPDATING SERVICE:');
     console.error(error); // Logs full stack trace and properties

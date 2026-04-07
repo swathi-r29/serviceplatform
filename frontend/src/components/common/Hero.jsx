@@ -68,16 +68,6 @@ const Hero = () => {
 
 
 
-      {/* Share button */}
-      <button className="share-btn" aria-label="Share">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <circle cx="18" cy="5" r="3" />
-          <circle cx="6" cy="12" r="3" />
-          <circle cx="18" cy="19" r="3" />
-          <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
-          <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
-        </svg>
-      </button>
 
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Lato:wght@300;400&display=swap');
@@ -240,32 +230,6 @@ const Hero = () => {
 
 
 
-        /* Share Button */
-        .share-btn {
-          position: fixed;
-          bottom: 3rem;
-          right: 3rem;
-          width: 56px;
-          height: 56px;
-          background: white;
-          border: none;
-          border-radius: 50%;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-          transition: all 0.3s;
-          z-index: 10;
-          color: #2c2c2c;
-        }
-
-        .share-btn:hover {
-          transform: scale(1.1) rotate(5deg);
-          box-shadow: 0 6px 25px rgba(230, 126, 34, 0.2);
-          background: #e67e22;
-          color: white;
-        }
 
         /* Animations */
         @keyframes fadeInUp {

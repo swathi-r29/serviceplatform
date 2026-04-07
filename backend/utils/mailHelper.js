@@ -104,4 +104,123 @@ const sendOTP = async (email, otp) => {
   return await sendEmail({ email, subject, message, html });
 };
 
-module.exports = { sendOTP, sendEmail };
+/**
+ * Notifies the worker of a new booking request.
+ */
+const sendNewBookingEmail = async (workerEmail, workerName, userName, serviceName, date, time) => {
+  const subject = 'New Booking Request - ServiceHub';
+  const message = `Hello ${workerName}, you have a new booking request for ${serviceName} from ${userName} on ${date} at ${time}.`;
+  const html = `
+    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 20px auto; border: 1px solid #e0d4c0; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
+      <div style="background-color: #c4975d; padding: 30px 20px; text-align: center;">
+        <h1 style="color: white; margin: 0; font-size: 24px; letter-spacing: 1px;">New Service Request</h1>
+      </div>
+      <div style="padding: 30px; color: #333; line-height: 1.6;">
+        <p style="font-size: 16px;">Hello <b>${workerName}</b>,</p>
+        <p>Expert matching successful! You have a new booking request from <b>${userName}</b>.</p>
+        
+        <div style="background-color: #fdfaf5; border-left: 4px solid #c4975d; padding: 20px; margin: 25px 0; border-radius: 4px;">
+          <h3 style="margin-top: 0; color: #c4975d; border-bottom: 1px solid #f0e6d6; padding-bottom: 10px;">Booking Details</h3>
+          <p style="margin: 10px 0;"><strong>Service:</strong> ${serviceName}</p>
+          <p style="margin: 10px 0;"><strong>Date:</strong> ${date}</p>
+          <p style="margin: 10px 0;"><strong>Time:</strong> ${time}</p>
+        </div>
+
+        <p style="text-align: center; margin-top: 30px;">
+          <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/worker/bookings" 
+             style="background-color: #c4975d; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">
+            View Request Details
+          </a>
+        </p>
+      </div>
+      <div style="background-color: #f9f9f9; padding: 20px; text-align: center; font-size: 12px; color: #999; border-top: 1px solid #eee;">
+        <p style="margin: 5px 0;">&copy; ${new Date().getFullYear()} ServiceHub. All rights reserved.</p>
+        <p style="margin: 5px 0;">Empowering professionals, serving homes.</p>
+      </div>
+    </div>
+  `;
+
+  return await sendEmail({ email: workerEmail, subject, message, html });
+};
+
+/**
+ * Notifies the user that their booking has been accepted.
+ */
+const sendBookingAcceptedEmail = async (userEmail, userName, workerName, serviceName, bookingId) => {
+  const subject = 'Booking Accepted! - ServiceHub';
+  const message = `Great news ${userName}! ${workerName} has accepted your booking for ${serviceName}.`;
+  const html = `
+    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 20px auto; border: 1px solid #d4edda; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
+      <div style="background-color: #28a745; padding: 30px 20px; text-align: center;">
+        <h1 style="color: white; margin: 0; font-size: 24px; letter-spacing: 1px;">Booking Confirmed!</h1>
+      </div>
+      <div style="padding: 30px; color: #333; line-height: 1.6;">
+        <p style="font-size: 16px;">Hello <b>${userName}</b>,</p>
+        <p>Great news! Your service request for <b>${serviceName}</b> has been accepted by our professional.</p>
+        
+        <div style="background-color: #f4faf6; border-left: 4px solid #28a745; padding: 20px; margin: 25px 0; border-radius: 4px;">
+          <p style="margin: 0;"><strong>Professional:</strong> ${workerName}</p>
+          <p style="margin: 10px 0 0 0;"><strong>Status:</strong> Confirmed & Ready</p>
+        </div>
+
+        <p>Please ensure your payment is completed (if not already) to finalize the scheduling.</p>
+
+        <p style="text-align: center; margin-top: 30px;">
+          <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/bookings/${bookingId}" 
+             style="background-color: #28a745; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">
+            View Booking Status
+          </a>
+        </p>
+      </div>
+      <div style="background-color: #f9f9f9; padding: 20px; text-align: center; font-size: 12px; color: #999; border-top: 1px solid #eee;">
+        <p style="margin: 5px 0;">&copy; ${new Date().getFullYear()} ServiceHub. All rights reserved.</p>
+      </div>
+    </div>
+  `;
+
+  return await sendEmail({ email: userEmail, subject, message, html });
+};
+
+/**
+ * Notifies the user that the service is completed and asks for a review.
+ */
+const sendServiceCompletedEmail = async (userEmail, userName, serviceName, bookingId) => {
+  const subject = 'Service Completed - Share your feedback';
+  const message = `Hi ${userName}, your ${serviceName} service is now complete. We'd love to hear your feedback!`;
+  const html = `
+    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 20px auto; border: 1px solid #e0d4c0; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
+      <div style="background-color: #c4975d; padding: 30px 20px; text-align: center;">
+        <h1 style="color: white; margin: 0; font-size: 24px; letter-spacing: 1px;">Service Completed!</h1>
+      </div>
+      <div style="padding: 30px; color: #333; text-align: center; line-height: 1.6;">
+        <p style="font-size: 18px; margin-bottom: 5px;">How was your experience, <b>${userName}</b>?</p>
+        <p>Your <b>${serviceName}</b> service has been successfully completed.</p>
+        
+        <div style="margin: 30px 0;">
+          <p style="font-size: 14px; color: #666;">Please take a moment to rate our professional. Your feedback helps us maintain high service standards.</p>
+          <div style="font-size: 30px; margin: 15px 0; color: #ffc107;">
+            ★ ★ ★ ★ ★
+          </div>
+          <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/bookings/${bookingId}" 
+             style="background-color: #c4975d; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">
+            Leave a Review
+          </a>
+        </div>
+      </div>
+      <div style="background-color: #f9f9f9; padding: 20px; text-align: center; font-size: 12px; color: #999; border-top: 1px solid #eee;">
+        <p style="margin: 5px 0;">Thank you for choosing ServiceHub!</p>
+        <p style="margin: 5px 0;">&copy; ${new Date().getFullYear()} ServiceHub. All rights reserved.</p>
+      </div>
+    </div>
+  `;
+
+  return await sendEmail({ email: userEmail, subject, message, html });
+};
+
+module.exports = { 
+  sendOTP, 
+  sendEmail, 
+  sendNewBookingEmail, 
+  sendBookingAcceptedEmail, 
+  sendServiceCompletedEmail 
+};

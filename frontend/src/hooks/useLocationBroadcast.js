@@ -9,7 +9,7 @@ const TRACKING_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
  *
  * @param {string}  bookingId — MongoDB _id of the active booking
  * @param {string}  workerId  — current worker's user _id
- * @param {boolean} isActive  — mount connection only when booking is 'on-the-way'
+ * @param {boolean} isActive  — mount connection only when booking is 'on-the-way' or 'in-progress'
  * @returns {{ isTracking, currentPosition, startTracking, stopTracking, error }}
  */
 export const useLocationBroadcast = (bookingId, workerId, isActive) => {

@@ -65,11 +65,27 @@ const EditService = () => {
       } else {
         // 🚀 Senior Logic: Auto-Sync Price from Worker's Skill Registry
         const worker = allWorkers.find(w => w._id === workerId);
-        const skillMatch = worker?.skillRates?.find(s =>
-          s.skillName.toLowerCase() === prev.category.toLowerCase()
+        
+        // 1. Try new skillPricing system first
+        const skillPricing = worker?.skillPricing?.find(sp => 
+          sp.skill?.toLowerCase() === prev.category?.toLowerCase() && sp.isActive
         );
 
-        const initialPrice = skillMatch ? skillMatch.rate : (prev.price || 0);
+        // 2. Try legacy skillRates system second
+        const legacySkill = worker?.skillRates?.find(s => 
+          s.skillName?.toLowerCase() === prev.category?.toLowerCase()
+        );
+
+        let initialPrice = prev.price || 0;
+        
+        // 🚀 Senior Refactor: Intelligent Defaulting
+        // Priority: Use the Service's general fee as the starting point to ensure synchronization
+        // Only override with worker's skill rate if the service fee is 0 or if the skill rate is a "Premium" (higher)
+        const workerRate = skillPricing?.rate || legacySkill?.rate || 0;
+        
+        if (!initialPrice || (workerRate > initialPrice)) {
+          if (workerRate > 0) initialPrice = workerRate;
+        }
 
         return {
           ...prev,
@@ -127,6 +143,18 @@ const EditService = () => {
           <p className="text-[#c4975d] font-medium tracking-widest uppercase text-xs italic">
             Refining Excellence • ServiceHub Registry
           </p>
+          
+          {/* 🚀 Marketplace Preview for Admin */}
+          <div className="mt-8 p-4 bg-amber-50 rounded-2xl border border-amber-100 flex items-center justify-between shadow-sm">
+            <div className="flex flex-col text-left">
+              <span className="text-[10px] font-black uppercase tracking-widest text-amber-600">Customer Facing Price</span>
+              <span className="text-2xl font-black text-amber-900">Starting from ₹{Math.min(...(formData.workers.map(w => w.price > 0 ? w.price : formData.price)), formData.price)}</span>
+            </div>
+            <div className="text-right">
+              <span className="text-[10px] font-bold text-amber-500 uppercase">Platform Standard</span>
+              <p className="text-sm font-bold text-gray-700">₹{formData.price}</p>
+            </div>
+          </div>
         </div>
 
         {error && (
@@ -188,8 +216,8 @@ const EditService = () => {
                   >
                     {[
                       'Plumbing', 'Electrical', 'Cleaning', 'Carpentry', 'Painting',
-                      'AC Repair', 'Pest Control', 'Appliance Repair', 'Moving & Packing',
-                      'Home Tutoring', 'Salon & Spa', 'Gardening', 'Smart Home', 'Other'
+                      'Pest Control', 'Appliance Repair', 'Packers & Movers',
+                      'Salon Services', 'Gardening', 'Smart Home', 'Other'
                     ].map(cat => (
                       <option key={cat} value={cat}>{cat}</option>
                     ))}

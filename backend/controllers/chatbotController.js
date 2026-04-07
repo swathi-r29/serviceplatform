@@ -148,7 +148,7 @@ exports.getChatResponse = async (req, res) => {
       return res.json({
         success: true,
         response: {
-          text: "Our service pricing is transparent! 💰\n\n• Plumbing: ₹299+\n• Electrical: ₹199+\n• Cleaning: ₹499+\n• Carpentry: ₹399+\n• Painting: ₹599+\n• AC Repair: ₹349+\n\nFinal prices depend on the specific service. Want a detailed quote?",
+          text: "Our service pricing is transparent! 💰\n\n• Plumbing: ₹299+\n• Electrical: ₹199+\n• Cleaning: ₹499+\n• Carpentry: ₹399+\n• Painting: ₹599+\n• Appliance Repair (including AC): ₹349+\n\nFinal prices depend on the specific service. Want a detailed quote?",
           services: allServices,
           options: ['Get Custom Quote', 'View All Services', 'Book Service']
         }

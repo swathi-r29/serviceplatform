@@ -14,17 +14,12 @@ export const AuthProvider = ({ children }) => {
   const navigate = useNavigate();
 
   useEffect(() => {
+    // 1. Initial sync of user from localStorage on mount
     const storedUser = localStorage.getItem('user');
-    if (storedUser) {
+    if (storedUser && !user) {
       try {
         const userData = JSON.parse(storedUser);
         setUser(userData);
-        // Initialize socket connection
-        const newSocket = io('http://localhost:5000');
-        newSocket.on('connect', () => {
-          newSocket.emit('join', userData._id);
-        });
-        setSocket(newSocket);
       } catch (error) {
         console.error('Error parsing stored user:', error);
         localStorage.removeItem('user');
@@ -32,7 +27,18 @@ export const AuthProvider = ({ children }) => {
     }
     setLoading(false);
 
-    // Re-sync user from localStorage when profile is updated elsewhere (e.g. UserProfile page)
+    // 2. Manage socket based on presence of user ID
+    let newSocket = null;
+    if (user?._id) {
+      newSocket = io('http://localhost:5000');
+      newSocket.on('connect', () => {
+        newSocket.emit('join', user._id);
+        console.log(`[Socket] Authorized and joined as ${user._id}`);
+      });
+      setSocket(newSocket);
+    }
+
+    // 3. Storage event listener for cross-tab sync
     const handleStorageUpdate = () => {
       const stored = localStorage.getItem('user');
       if (stored) {
@@ -41,11 +47,12 @@ export const AuthProvider = ({ children }) => {
     };
     window.addEventListener('storage', handleStorageUpdate);
 
+    // 4. Cleanup: disconnect socket and remove listeners
     return () => {
-      if (socket) socket.disconnect();
+      if (newSocket) newSocket.disconnect();
       window.removeEventListener('storage', handleStorageUpdate);
     };
-  }, []);
+  }, [user?._id]);
 
   const login = async (email, password, role) => {
     try {

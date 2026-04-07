@@ -5,6 +5,7 @@ import BookingCard from './BookingCard';
 import UserSidebar from './UserSidebar';
 import ReviewModal from '../reviews/ReviewModal';
 import { FaPlus, FaStar, FaCheckCircle } from 'react-icons/fa';
+import { getImageUrl } from '../../utils/helpers';
 
 const MyBookings = () => {
   const [bookings, setBookings]               = useState([]);
@@ -76,7 +77,7 @@ const MyBookings = () => {
   };
 
   const getFilteredBookings = () => {
-    if (filter === 'upcoming')  return bookings.filter(b => b.status === 'pending' || b.status === 'accepted');
+    if (filter === 'upcoming')  return bookings.filter(b => ['pending', 'accepted', 'on-the-way', 'in-progress'].includes(b.status));
     if (filter === 'past')      return bookings.filter(b => b.status === 'completed' || b.status === 'rejected');
     if (filter === 'cancelled') return bookings.filter(b => b.status === 'cancelled');
     return bookings;
@@ -144,7 +145,7 @@ const MyBookings = () => {
                 {tab === 'past' ? 'Past Services' : tab}
                 {tab === 'upcoming' && (
                   <span className="ml-2 bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-xs">
-                    {bookings.filter(b => b.status === 'pending' || b.status === 'accepted').length}
+                    {bookings.filter(b => ['pending', 'accepted', 'on-the-way', 'in-progress'].includes(b.status)).length}
                   </span>
                 )}
                 {filter === tab && (
@@ -210,7 +211,7 @@ const MyBookings = () => {
                   <div className="w-16 h-16 bg-gray-100 rounded-lg flex-shrink-0 flex items-center justify-center text-gray-400 overflow-hidden">
                     {service.image ? (
                       <img
-                        src={service.image.startsWith('http') ? service.image : `http://localhost:5000${service.image}`}
+                        src={getImageUrl(service.image)}
                         alt=""
                         className="w-full h-full object-cover"
                       />

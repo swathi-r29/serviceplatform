@@ -7,21 +7,21 @@ import LifecycleTimeline from '../common/LifecycleTimeline';
 import { useWebRTC } from '../../context/WebRTCContext';
 import LiveTrackingMap from '../tracking/LiveTrackingMap';
 import CancelBookingModal from '../cancellation/CancelBookingModal';
+import Receipt from './Receipt';
 
 const BookingCard = ({ booking, onCancel, onRefresh }) => {
   const [showPayment, setShowPayment] = useState(false);
   const [showTracking, setShowTracking] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
+  const [showReceipt, setShowReceipt] = useState(false);
   const { startStream, callUser, setIsCallModalOpen } = useWebRTC();
   const [isFavoriteWorker, setIsFavoriteWorker] = useState(false);
 
   // Decode userId from JWT stored in localStorage for socket auth
   const userId = (() => {
     try {
-      const token = localStorage.getItem('token');
-      if (!token) return null;
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      return payload.id || payload._id || null;
+      const userData = JSON.parse(localStorage.getItem('user'));
+      return userData?._id || userData?.id || null;
     } catch { return null; }
   })();
 
@@ -98,46 +98,52 @@ const BookingCard = ({ booking, onCancel, onRefresh }) => {
           </h3>
 
           {/* Worker Info */}
-          <div className="flex items-center gap-2 mb-4">
-            <div className="w-6 h-6 rounded-full bg-gray-200 overflow-hidden">
-              {/* Placeholder for worker image */}
-              <svg className="w-full h-full text-gray-400" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
-              </svg>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mb-4">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="w-6 h-6 rounded-full bg-gray-200 overflow-hidden flex-shrink-0">
+                <svg className="w-full h-full text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="text-sm text-gray-600 flex items-center gap-1.5 min-w-0">
+                <span className="whitespace-nowrap">Pro:</span>
+                <span className="font-semibold text-gray-900 whitespace-nowrap overflow-hidden text-ellipsis" title={booking.worker?.name}>
+                  {booking.worker?.name || "Pending Assignment"}
+                </span>
+                {booking.worker && (
+                  <button
+                    onClick={toggleFavoriteWorker}
+                    className="text-gray-400 hover:text-red-500 transition-colors flex-shrink-0 ml-1"
+                    title={isFavoriteWorker ? "Remove from favorites" : "Add to favorites"}
+                  >
+                    {isFavoriteWorker ? <FaHeart className="text-red-500 shrink-0" /> : <FaRegHeart className="shrink-0" />}
+                  </button>
+                )}
+              </div>
             </div>
-            <p className="text-sm text-gray-600 flex items-center gap-2">
-              Pro: <span className="font-semibold text-gray-900">{booking.worker?.name || "Pending Assignment"}</span>
-              {booking.worker && (
-                <button
-                  onClick={toggleFavoriteWorker}
-                  className="text-gray-400 hover:text-red-500 transition-colors"
-                  title={isFavoriteWorker ? "Remove from favorites" : "Add to favorites"}
-                >
-                  {isFavoriteWorker ? <FaHeart className="text-red-500" /> : <FaRegHeart />}
-                </button>
-              )}
-            </p>
-            {booking.worker?.rating && (
-              <div className="flex items-center text-yellow-500 text-sm">
-                <span className="mr-0.5">★</span> {booking.worker.rating}
+            {booking.worker?.rating !== undefined && (
+              <div className="flex items-center text-yellow-600 text-sm font-medium flex-shrink-0">
+                <span className="mr-0.5 text-yellow-500 text-base">★</span> 
+                {booking.worker.rating > 0 ? booking.worker.rating : 'New'}
               </div>
             )}
           </div>
 
-          <div className="flex items-center gap-6 text-sm text-gray-500 font-lato">
-            <div className="flex items-center gap-2">
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-gray-500 font-lato mt-auto">
+            <div className="flex items-center gap-2 whitespace-nowrap">
+              <svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
-              {new Date(booking.scheduledDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+              <span>{new Date(booking.scheduledDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</span>
             </div>
-            <div className="flex items-center gap-2">
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div className="flex items-center gap-2 whitespace-nowrap">
+              <svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              {booking.scheduledTime}
+              <span>{booking.scheduledTime}</span>
             </div>
           </div>
+
 
           {/* Payment Status */}
           <div className="mt-3">
@@ -169,18 +175,24 @@ const BookingCard = ({ booking, onCancel, onRefresh }) => {
           {/* Only show old pay button or Chat/Call if not cancelled or rejected */}
           {['accepted', 'on-the-way', 'in-progress'].includes(booking.status) && (
             <>
-              {booking.status === 'on-the-way' && (
-                <div className="flex items-center gap-1.5 text-xs font-bold text-blue-600 bg-blue-50 px-3 py-1.5 rounded-full border border-blue-100 mb-2">
-                  <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
-                  Live Tracking Active
-                </div>
-              )}
+          {['on-the-way', 'in-progress'].includes(booking.status) && (
+            <button
+               onClick={() => setShowTracking(!showTracking)}
+               className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full border mb-2 transition-all ${
+                 showTracking 
+                 ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-200' 
+                 : 'text-blue-600 bg-blue-50 border-blue-100 hover:bg-blue-100'
+               }`}
+            >
+              <span className={`w-2 h-2 rounded-full ${showTracking ? 'bg-white' : 'bg-blue-500'} animate-pulse`} />
+              {showTracking ? 'Hide Tracking Map' : 'Live Tracking Active'}
+            </button>
+          )}
               <div className="flex gap-2 w-full">
                 <button
-                  onClick={() => {
-                    startStream();
-                    callUser(booking.worker._id);
+                  onClick={async () => {
                     setIsCallModalOpen(true);
+                    await callUser(booking.worker._id);
                   }}
                   className="flex-1 px-4 py-2.5 bg-green-500 text-white text-sm font-bold rounded-lg hover:bg-green-600 transition flex items-center justify-center gap-2"
                 >
@@ -194,12 +206,18 @@ const BookingCard = ({ booking, onCancel, onRefresh }) => {
                   Chat
                 </Link>
               </div>
-              <button
-                onClick={() => setShowPayment(true)}
-                className="w-full px-5 py-2.5 bg-gray-900 text-white text-sm font-bold rounded-lg hover:bg-black transition shadow-sm mt-2"
-              >
-                {booking.paymentStatus === 'paid' ? 'View Receipt' : 'Pay Now'}
-              </button>
+               <button
+                 onClick={() => {
+                   if (booking.paymentStatus === 'paid') {
+                     setShowReceipt(true);
+                   } else {
+                     setShowPayment(true);
+                   }
+                 }}
+                 className="w-full px-5 py-2.5 bg-gray-900 text-white text-sm font-bold rounded-lg hover:bg-black transition shadow-sm mt-2"
+               >
+                 {booking.paymentStatus === 'paid' ? 'View Receipt' : 'Pay Now'}
+               </button>
             </>
           )}
 
@@ -246,7 +264,12 @@ const BookingCard = ({ booking, onCancel, onRefresh }) => {
         />
       )}
 
-
+       {showReceipt && (
+         <Receipt
+           booking={booking}
+           onClose={() => setShowReceipt(false)}
+         />
+       )}
 
       {showCancelModal && (
         <CancelBookingModal

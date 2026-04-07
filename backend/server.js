@@ -184,7 +184,8 @@ app.use(cors({
   origin: ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:5175', 'http://localhost:5176', 'http://localhost:5177', 'http://localhost:3000'],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'request-id'],
+  exposedHeaders: ['request-id', 'x-rtb-fingerprint-id', 'x-rtb-fingerprint-v2-id', 'Content-Disposition']
 }));
 
 // Body Parser Middleware

@@ -13,10 +13,8 @@ const WorkerBookingCard = ({ booking, onRefresh }) => {
   // Decode workerId from JWT for the tracking hook
   const workerId = (() => {
     try {
-      const token = localStorage.getItem('token');
-      if (!token) return null;
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      return payload.id || payload._id || null;
+      const userData = JSON.parse(localStorage.getItem('user'));
+      return userData?._id || userData?.id || null;
     } catch { return null; }
   })();
 
@@ -87,10 +85,9 @@ const WorkerBookingCard = ({ booking, onRefresh }) => {
         {['accepted', 'on-the-way', 'in-progress'].includes(booking.status) && (
           <div className="grid grid-cols-2 gap-3">
             <button
-              onClick={() => {
-                startStream();
-                callUser(booking.user._id);
+              onClick={async () => {
                 setIsCallModalOpen(true);
+                await callUser(booking.user._id, { video: false, audio: true });
               }}
               className="flex items-center justify-center gap-2 py-3 bg-green-500 text-white rounded-xl font-bold text-xs hover:bg-green-600 transition-all shadow-lg shadow-green-100"
             >

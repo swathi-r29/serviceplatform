@@ -56,6 +56,12 @@ const bookingSchema = new mongoose.Schema({
     type: Number,
     required: true
   },
+  baseServicePrice: {
+    type: Number
+  },
+  travelFee: {
+    type: Number
+  },
   paymentDetails: {
     razorpay_order_id: String,
     razorpay_payment_id: String,
