@@ -51,8 +51,6 @@ const UserSidebar = () => {
         { name: 'Profile Settings', path: '/user/profile', icon: <FaUser /> },
         { name: 'Favorites', path: '/user/favorites', icon: <FaHeart /> },
         { name: 'My Bookings', path: '/user/bookings', icon: <FaRegCreditCard /> },
-        { name: 'Payment Methods', path: '/user/payment-methods', icon: <FaRegCreditCard /> },
-        { name: 'Saved Addresses', path: '/user/addresses', icon: <FaMapMarkerAlt /> },
         { name: 'Help Center', path: '/support', icon: <FaQuestionCircle /> },
     ];
 
