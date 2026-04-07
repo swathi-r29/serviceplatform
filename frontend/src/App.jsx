@@ -33,7 +33,7 @@ import AnalyticsDashboard from './components/admin/AnalyticsDashboard';
 import AdminSettings from './components/admin/AdminSettings';
 import NotFound from './pages/NotFound';
 import Support from './pages/Support';
-import HowItWorksPage from './pages/Howitworks';
+import HowItWorksPage from './pages/HowItWorks';
 import GoogleCallback from './pages/GoogleCallback';
 import Chat from './components/common/Chat';
 import Cart from './components/user/Cart';
