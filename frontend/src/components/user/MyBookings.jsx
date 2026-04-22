@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import axios from '../../api/axios';
 import BookingCard from './BookingCard';
-import UserSidebar from './UserSidebar';
 import ReviewModal from '../reviews/ReviewModal';
 import { FaPlus, FaStar, FaCheckCircle } from 'react-icons/fa';
 import { getImageUrl } from '../../utils/helpers';
@@ -92,10 +91,8 @@ const MyBookings = () => {
       </div>
     );
   }
-
   return (
     <div className="min-h-screen bg-[#faf8f5] font-lato">
-      <UserSidebar />
 
       {/* Review Modal */}
       {reviewModal && (
@@ -114,7 +111,7 @@ const MyBookings = () => {
         />
       )}
 
-      <div className="md:ml-64 p-8">
+      <div className="p-8">
         <div className="max-w-7xl mx-auto">
 
           {/* Header */}

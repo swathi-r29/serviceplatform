@@ -43,7 +43,7 @@ const RecommendedServices = () => {
                         <p className="text-xs text-gray-500 font-medium flex items-center gap-1"><FaMagic className="text-yellow-500" size={10} /> AI-Curated for You</p>
                     </div>
                 </div>
-                <Link to="/user/services" className="text-sm font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 group transition-all">
+                <Link to="/services" className="text-sm font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 group transition-all">
                     View All <FaChevronRight size={10} className="group-hover:translate-x-1 transition-transform" />
                 </Link>
             </div>

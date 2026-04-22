@@ -1,8 +1,6 @@
 import { useState, useEffect, useContext } from 'react';
 import axios from '../../api/axios';
 import { AuthContext } from '../../context/AuthContext';
-import UserSidebar from './UserSidebar';
-
 const SERVER_URL = 'http://localhost:5000';
 
 const buildImageUrl = (path) => {
@@ -110,8 +108,7 @@ const UserProfile = () => {
 
   return (
     <div className="min-h-screen bg-[#faf8f5] font-['Lato']">
-      <UserSidebar />
-      <div className="md:ml-64 py-12 px-4 sm:px-6 lg:px-8">
+      <div className="py-12 px-4 sm:px-6 lg:px-8">
         <div className="max-w-4xl mx-auto">
           <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
             {/* Hero/Cover Section with Dark Background */}

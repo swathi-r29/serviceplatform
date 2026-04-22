@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { FaStar, FaMapMarkerAlt, FaClock, FaCalendarAlt, FaUser, FaCheckCircle, FaInfoCircle, FaShoppingCart, FaPercentage, FaMagic, FaMapPin, FaRegClock } from 'react-icons/fa';
+import { FaStar, FaMapMarkerAlt, FaClock, FaCalendarAlt, FaUser, FaCheckCircle, FaInfoCircle, FaPercentage, FaMapPin, FaRegClock, FaChevronLeft, FaRobot, FaMagic, FaChartBar, FaArrowRight } from 'react-icons/fa';
 import axios from '../../api/axios';
 import LocationPicker from '../common/LocationPicker';
 import { useAssistantContext } from '../../context/AssistantContext';
@@ -19,10 +19,10 @@ const CreateBooking = () => {
     notes: ''
   });
   const [loading, setLoading] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
   const [error, setError] = useState('');
   const { setPageContext } = useAssistantContext();
   const [cancelMessage, setCancelMessage] = useState('');
-
   const [discountInfo, setDiscountInfo] = useState({ isFirstBooking: false, firstTimeDiscount: 0 });
 
   useEffect(() => {
@@ -40,935 +40,479 @@ const CreateBooking = () => {
     }
   }, [service, setPageContext]);
 
-  useEffect(() => {
-    const sw = workersList.find(w => w._id === formData.workerId);
-    if (service && sw) {
-      setPageContext({
-        type: 'booking',
-        service: { name: service.name, price: service.price },
-        worker: { name: sw.name, rating: sw.rating }
-      });
-    }
-  }, [service, formData.workerId, workersList, setPageContext]);
-
+  // 🚀 RESTORED PRECISION HAVERSINE
   const calculateDistance = (lat1, lon1, lat2, lon2) => {
-    if (!lat1 || !lon1 || !lat2 || !lon2) return null;
-    const userLat = Number(lat1);
-    const userLng = Number(lon1);
-    const workerLat = Number(lat2);
-    const workerLng = Number(lon2);
-    
-    console.log(`📍 Haversine Calc: User(${userLat}, ${userLng}) <-> Pro(${workerLat}, ${workerLng})`);
-    
+    const p1_lat = parseFloat(lat1);
+    const p1_lng = parseFloat(lon1);
+    const p2_lat = parseFloat(lat2);
+    const p2_lng = parseFloat(lon2);
+
+    if (isNaN(p1_lat) || isNaN(p1_lng) || isNaN(p2_lat) || isNaN(p2_lng)) return null;
+
     const R = 6371; // km
-    const dLat = (workerLat - userLat) * Math.PI / 180;
-    const dLon = (workerLng - userLng) * Math.PI / 180;
-    const a = 
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(userLat * Math.PI / 180) * Math.cos(workerLat * Math.PI / 180) * 
-      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const dLat = (p2_lat - p1_lat) * Math.PI / 180;
+    const dLon = (p2_lng - p1_lng) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(p1_lat * Math.PI / 180) * Math.cos(p2_lat * Math.PI / 180) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    const d = R * c;
-    const distance = Math.round(d * 10) / 10;
-    console.log(`   📏 Distance Result: ${distance} km`);
-    return distance;
+    return Math.round(R * c * 10) / 10;
   };
 
   const getTravelFee = (distance) => {
-    if (distance === null || distance === undefined || distance < 0) return 30;
-    
-    let fee = 30; // Base fee (includes first 5km)
-    
+    if (distance === null || distance < 0) return 30;
+    let fee = 30;
     if (distance > 5) {
-      if (distance <= 25) {
-        fee += (distance - 5) * 8;
-      } else {
-        // First 5km: Included in 30
-        // Next 20km (5-25km): 20 * 8 = 160
-        // Beyond 25km: remaining * 5
-        fee += 160 + (distance - 25) * 5;
-      }
+      if (distance <= 25) fee += (distance - 5) * 8;
+      else fee += 160 + (distance - 25) * 5;
     }
-    
     return Math.round(fee);
   };
 
   const fetchDiscount = async () => {
-    try {
-      const { data } = await axios.get('/bookings/check-discount');
-      setDiscountInfo(data);
-    } catch (err) {
-      console.error('Failed to fetch discount info');
-    }
+    try { const { data } = await axios.get('/bookings/check-discount'); setDiscountInfo(data); } catch (_) { }
   };
 
   const getImageUrl = (path) => {
     if (!path) return null;
     if (path.startsWith('http')) return path;
-    return `http://localhost:5000${path}`;
+    const base = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+      ? 'http://localhost:5000'
+      : 'https://servicehub-nbgj.onrender.com';
+    return `${base}${path}`;
   };
 
-  const fetchWorkers = async (category) => {
+  const fetchWorkers = async (category, coords = null) => {
     try {
-      const { data } = await axios.get(`/services/workers/${category}`);
+      const activeCoords = coords || formData.locationCoords;
+      let url = `/services/workers/${category}`;
+      if (activeCoords) {
+        const lat = activeCoords.lat || activeCoords.latitude;
+        const lng = activeCoords.lng || activeCoords.longitude;
+        url += `?lat=${lat}&lng=${lng}&radius=50`;
+      }
+      console.log(`📡 Fetching workers for ${category} with radius 50km`);
+      const { data } = await axios.get(url);
       setWorkersList(data);
-    } catch (error) {
-      console.error('Failed to fetch workers:', error);
-    }
+    } catch (_) { }
   };
 
   const fetchService = async () => {
     try {
       const { data } = await axios.get(`/services/${serviceId}`);
       setService(data);
-
-      if (data.workers && data.workers.length > 0) {
-        const assignedApprovedWorkers = data.workers
-          .filter(w => w.worker && w.worker.status === 'approved')
-          .map(w => ({
-            ...w.worker,
-            serviceSpecificPrice: w.price
-          }));
-        
-        if (assignedApprovedWorkers.length > 0) {
-          setWorkersList(assignedApprovedWorkers);
-          return;
-        }
+      if (data.workers?.length > 0) {
+        const approved = data.workers.filter(w => w.worker?.status === 'approved').map(w => ({ ...w.worker, serviceSpecificPrice: w.price }));
+        if (approved.length > 0) { setWorkersList(approved); return; }
       }
-
-      if (data.category) {
-        fetchWorkers(data.category);
-      }
-    } catch (error) {
-      setError('Failed to load service details. Please try again.');
-    }
+      if (data.category) fetchWorkers(data.category);
+    } catch (_) { setError('Failed to load service details.'); }
   };
 
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
+  const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
-  const handleLocationSelect = (locationData) => {
-    setFormData(prev => ({
-      ...prev,
-      address: locationData.address,
-      locationCoords: {
-        lat: locationData.latitude,
-        lng: locationData.longitude
-      }
-    }));
-  };
-
-  const handleWorkerSelect = (workerId) => {
-    setFormData(prev => ({ ...prev, workerId }));
+  const handleLocationSelect = (loc) => {
+    const coords = { lat: loc.latitude, lng: loc.longitude };
+    setFormData(prev => ({ ...prev, address: loc.address, locationCoords: coords }));
+    if (service?.category) fetchWorkers(service.category, coords);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.workerId) {
-      setError('Please select a professional to proceed.');
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (!formData.workerId || !formData.scheduledDate || !formData.scheduledTime) {
+      setError('Complete all selections to proceed.');
       return;
     }
-    if (!formData.scheduledDate || !formData.scheduledTime) {
-      setError('Please select a date and time.');
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-      return;
-    }
-
-    setError('');
-    setCancelMessage('');
     setLoading(true);
-
     try {
-      // ── Step 1: Create Razorpay order (NO booking in DB yet) ──
-      const { data: orderData } = await axios.post('/payment/create-order', {
-        serviceId,
-        workerId: formData.workerId,
-        scheduledDate: formData.scheduledDate,
-        scheduledTime: formData.scheduledTime,
-        address: formData.address,
-        locationCoords: formData.locationCoords,
-        notes: formData.notes,
-        totalAmount: total,
-        baseServicePrice: basePrice,
-        travelFee: travelCharge
-      });
-
-      // Capture booking details now — they must be in scope for the Razorpay handlers
-      const bookingDetails = {
-        serviceId,
-        workerId: formData.workerId,
-        scheduledDate: formData.scheduledDate,
-        scheduledTime: formData.scheduledTime,
-        address: formData.address,
-        locationCoords: formData.locationCoords,
-        notes: formData.notes,
-        totalAmount: total,
-        baseServicePrice: basePrice,
-        travelFee: travelCharge
-      };
-
-      // ── Step 2: Open Razorpay modal ──
+      const { data: orderData } = await axios.post('/payment/create-order', { ...formData, serviceId, totalAmount: total, baseServicePrice: basePrice, travelFee: travelCharge });
       const options = {
         key: orderData.keyId,
         amount: orderData.amount,
-        currency: orderData.currency,
         name: 'ServiceHub',
         description: `Booking for ${service.name}`,
         order_id: orderData.orderId,
-        handler: async (response) => {
-          // ── Step 3 (success): Verify signature + create booking atomically ──
+        // 👇 Force UPI ID input to be prominent
+        config: {
+          display: {
+            blocks: {
+              upi: {
+                name: 'UPI ID / QR',
+                instruments: [
+                  {
+                    method: 'vpa'
+                  },
+                  {
+                    method: 'upi'
+                  }
+                ],
+              },
+            },
+            sequence: ['block.upi'],
+            preferences: { show_default_blocks: true },
+          },
+        },
+        handler: async (resp) => {
           try {
-            setLoading(true);
-            setCancelMessage('');
-            const { data } = await axios.post('/payment/verify-and-create', {
-              razorpay_order_id: response.razorpay_order_id,
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_signature: response.razorpay_signature,
-              bookingDetails
-            });
-            if (data.success) {
-              navigate('/user/bookings');
-            } else {
-              setError('Booking could not be confirmed after payment. Please contact support.');
-              setLoading(false);
-            }
-          } catch (err) {
-            setError(
-              err.response?.data?.message ||
-              'Payment was received but booking confirmation failed. Please contact support with your payment ID: ' +
-              response.razorpay_payment_id
-            );
-            setLoading(false);
-          }
+            const { data } = await axios.post('/payment/verify-and-create', { razorpay_order_id: resp.razorpay_order_id, razorpay_payment_id: resp.razorpay_payment_id, razorpay_signature: resp.razorpay_signature, bookingDetails: { ...formData, serviceId, totalAmount: total, baseServicePrice: basePrice, travelFee: travelCharge } });
+            if (data.success) navigate('/user/bookings');
+            else setError('Confirmation error.');
+          } catch (_) { setError('Payment received but booking failed.'); }
+          setLoading(false);
         },
         prefill: {
-          name: '',
-          email: '',
-          contact: ''
+          vpa: 'success@razorpay'
         },
-        theme: {
-          color: '#2563eb'
-        },
-        modal: {
-          ondismiss: () => {
-            // ── Step 3 (cancelled): Stay on page, no booking was created ──
-            setLoading(false);
-            setCancelMessage('Payment cancelled. Your booking was not confirmed.');
-            // DO NOT navigate — no record exists in DB
-          }
-        }
+        modal: { ondismiss: () => setLoading(false) },
+        theme: { color: '#3B82F6' }
       };
-
-      const rzp = new window.Razorpay(options);
-      rzp.open();
-      // Don't setLoading(false) here — keep spinner until handler or ondismiss fires
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to initiate payment. Please try again.');
-      setLoading(false);
-    }
-  };
-
-  const handleAddToCart = async () => {
-    if (!formData.workerId || !formData.scheduledDate || !formData.scheduledTime) {
-      setError('Please select a professional, date, and time to add to cart.');
-      return;
-    }
-
-    // TODO: Cart checkout must also use payment-first flow
-    // when CartCheckout.jsx is built. Do not create booking
-    // records from cart until payment is verified.
-    // The current cart stores intent only — booking is created
-    // only once /payment/verify-and-create succeeds.
-
-    setError('');
-    setCancelMessage('');
-    setLoading(true);
-
-    try {
-      await axios.post('/cart/add', {
-        serviceId,
-        ...formData
+      const paymentObject = new window.Razorpay(options);
+      paymentObject.on('payment.failed', function (response) {
+        console.error('❌ Razorpay Payment Failed:', response.error);
+        setError(`Payment failed: ${response.error.description}`);
+        setLoading(false);
       });
-      navigate('/user/cart');
+      paymentObject.open();
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to add to cart');
-    } finally {
+      console.error('❌ Razorpay Initialization Error:', err);
+      setError(err.response?.data?.message || 'Payment initiation failed.');
       setLoading(false);
     }
   };
 
   const calculateTotal = () => {
-    if (!service) return { basePrice: 0, volumeDiscount: 0, firstTimeDiscount: 0, travelCharge: 0, total: 0, estimatedTime: 1, pricingType: 'standard' };
-    
-    const selectedWorker = workersList.find(w => w._id === formData.workerId);
-    
-    // 🚀 Senior Refactor: Authoritative Pricing Synchronization
-    // Priority: 1. Worker Skill Pricing (Backend activePrice)
-    //           2. Admin Assigned Price (serviceSpecificPrice)
-    //           3. Service Default
-    
-    let basePrice = 0;
-    let estimatedTime = 1;
-    let pricingType = 'standard';
-    let skillRateValue = 0;
+    if (!service) return { total: 0 };
+    const sw = workersList.find(w => w._id === formData.workerId);
+    const bPrice = parseFloat(sw?.serviceSpecificPrice) || sw?.activePrice || service.price || 0;
 
-    if ((parseFloat(selectedWorker?.serviceSpecificPrice) || 0) > 0) {
-      // Priority 1: Admin Manual Override for this specific service
-      basePrice = parseFloat(selectedWorker.serviceSpecificPrice);
-      pricingType = 'fixed'; // Overrides are usually fixed platform standard
-      estimatedTime = service.duration || 1;
-      skillRateValue = basePrice;
-    }
-    else if (selectedWorker?.activePrice && selectedWorker?.isCustomRate) {
-      // Priority 2: Backend Computed Skill Price
-      basePrice = selectedWorker.activePrice;
-      pricingType = selectedWorker.pricingType || 'fixed';
-      estimatedTime = selectedWorker.estimatedTime || 1;
-      skillRateValue = selectedWorker.activePrice;
-    } 
-    else {
-      // Priority 3: Platform Marketplace Starting Price (if available) or Service Default
-      basePrice = service.startingPrice || service.price;
-      pricingType = service.startingPrice ? "starting" : "standard";
-      estimatedTime = service.duration || 1;
-    }
+    const wLat = sw?.coordinates?.lat || sw?.coordinates?.latitude;
+    const wLng = sw?.coordinates?.lng || sw?.coordinates?.longitude;
+    const uLat = formData.locationCoords?.lat || formData.locationCoords?.latitude;
+    const uLng = formData.locationCoords?.lng || formData.locationCoords?.longitude;
 
-    // Calculate Travel Fee
-    let travelCharge = 0;
-    if (selectedWorker && formData.locationCoords) {
-      const distance = calculateDistance(
-        formData.locationCoords.lat, formData.locationCoords.lng,
-        selectedWorker.coordinates?.lat, selectedWorker.coordinates?.lng
-      );
-      travelCharge = getTravelFee(distance);
-    }
-
-    // Calculate Discounts
-    let volDiscount = 0;
-    if (basePrice > 5000) volDiscount = basePrice * 0.20;
-    else if (basePrice > 2000) volDiscount = basePrice * 0.10;
-    
-    const firstDiscount = discountInfo.isFirstBooking ? 200 : 0;
-    
-    const subtotalPrice = basePrice + (formData.locationCoords ? travelCharge : 0);
-    const isConfigured = !!formData.workerId;
-    let finalTotal = isConfigured ? Math.max(0, subtotalPrice - volDiscount - firstDiscount) : null;
-
-    return { 
-      basePrice, 
-      volumeDiscount: volDiscount, 
-      firstTimeDiscount: firstDiscount, 
-      travelCharge: formData.locationCoords ? travelCharge : null, 
-      total: finalTotal,
-      estimatedTime: Math.round(estimatedTime * 10) / 10,
-      pricingType,
-      skillRate: skillRateValue,
-      isConfigured
-    };
+    const d = sw && formData.locationCoords ? calculateDistance(uLat, uLng, wLat, wLng) : null;
+    const tCharge = getTravelFee(d);
+    let volD = bPrice > 5000 ? bPrice * 0.2 : bPrice > 2000 ? bPrice * 0.1 : 0;
+    const firstD = discountInfo.isFirstBooking ? 200 : 0;
+    const tot = !!formData.workerId ? Math.max(0, bPrice + (formData.locationCoords ? tCharge : 0) - volD - firstD) : null;
+    return { basePrice: bPrice, travelCharge: tCharge, total: tot, volDisc: volD, firstDisc: firstD, isConfigured: !!formData.workerId, dist: d };
   };
 
-  const { basePrice, volumeDiscount, firstTimeDiscount, travelCharge, total, estimatedTime, pricingType, skillRate, isConfigured } = calculateTotal();
-  
-  // ✅ Enhanced sorting logic for workersList
-  const sortedWorkers = [...workersList].sort((a, b) => {
-    if (!formData.locationCoords) return 0; // No sorting if location not picked
+  const { basePrice, travelCharge, total, volDisc, firstDisc, isConfigured, dist } = calculateTotal();
+
+  // 🚀 HARDENED 50KM PROXIMITY FILTER
+  const filteredWorkers = [...workersList].filter(w => {
+    if (!formData.locationCoords) return true;
     
-    const distA = calculateDistance(formData.locationCoords.lat, formData.locationCoords.lng, a.coordinates?.lat, a.coordinates?.lng);
-    const distB = calculateDistance(formData.locationCoords.lat, formData.locationCoords.lng, b.coordinates?.lat, b.coordinates?.lng);
+    // Support multiple coordinate property names (lat, latitude, lng, longitude)
+    const wCoords = w.coordinates || w;
+    const wLat = wCoords.lat ?? wCoords.latitude;
+    const wLng = wCoords.lng ?? wCoords.longitude;
     
-    const rateA = a.serviceSpecificPrice || a.serviceCharge || a.hourlyRate || service.price;
-    const rateB = b.serviceSpecificPrice || b.serviceCharge || b.hourlyRate || service.price;
-    
-    const totalA = rateA + getTravelFee(distA);
-    const totalB = rateB + getTravelFee(distB);
-    
-    return totalA - totalB;
+    const uLat = formData.locationCoords.lat ?? formData.locationCoords.latitude;
+    const uLng = formData.locationCoords.lng ?? formData.locationCoords.longitude;
+
+    if (wLat === undefined || wLng === undefined) {
+      console.warn(`⚠️ Missing coordinates for worker: ${w.name}`, w);
+      return true; // Don't hide workers with missing data for now
+    }
+
+    const d = calculateDistance(uLat, uLng, wLat, wLng);
+    console.log(`📏 Distance check for worker: ${w.name} = ${d}km`);
+    return d !== null && d <= 50;
+  }).sort((a, b) => {
+    if (!formData.locationCoords) return 0;
+    const distA = calculateDistance(
+      formData.locationCoords.lat || formData.locationCoords.latitude,
+      formData.locationCoords.lng || formData.locationCoords.longitude,
+      a.coordinates?.lat || a.coordinates?.latitude,
+      a.coordinates?.lng || a.coordinates?.longitude
+    );
+    const distB = calculateDistance(
+      formData.locationCoords.lat || formData.locationCoords.latitude,
+      formData.locationCoords.lng || formData.locationCoords.longitude,
+      b.coordinates?.lat || b.coordinates?.latitude,
+      b.coordinates?.lng || b.coordinates?.longitude
+    );
+    return (distA || 0) - (distB || 0);
   });
 
-  // ✅ Derived values for pricing breakdown scope
-  const selectedWorker = workersList.find(w => w._id === formData.workerId);
-  // Check if the selected worker has a custom skill-based or legacy rate
-  const hasCustomRate = selectedWorker?.isCustomRate || !!selectedWorker?.serviceSpecificPrice;
-
-  // Calculate potential savings (compared to most expensive option)
-  const maxTotal = sortedWorkers.length > 1 
-    ? Math.max(...sortedWorkers.map(w => {
-        const d = calculateDistance(formData.locationCoords?.lat, formData.locationCoords?.lng, w.coordinates?.lat, w.coordinates?.lng);
-        return (w.serviceSpecificPrice || w.serviceCharge || w.hourlyRate || service.price) + getTravelFee(d);
-      }))
-    : total;
-  
-  const potentialSavings = Math.max(0, maxTotal - total);
-
-  if (!service) return (
-    <div className="flex justify-center items-center min-h-screen bg-gray-50">
-      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-    </div>
-  );
+  if (!service) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-azure-blue"></div></div>;
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex items-center justify-between mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Configure Your Service</h1>
-          <button
-            onClick={() => navigate(-1)}
-            className="text-gray-600 hover:text-gray-900 font-medium"
-          >
-            Back
+    <div className="min-h-screen py-10 px-6 font-lato">
+      <div className="max-w-7xl mx-auto space-y-10">
+        {/* 🚀 NAVIGATION */}
+        <div className="flex items-center justify-between">
+          <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-deep-slate font-black text-xs uppercase tracking-widest hover:text-azure-blue transition-all">
+            <FaChevronLeft /> Back
           </button>
+          <h1 className="text-xl font-black text-deep-slate uppercase tracking-tighter">Configure Service</h1>
         </div>
 
         {error && (
-          <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-8 rounded-r-lg shadow-sm">
-            <div className="flex">
-              <div className="flex-shrink-0">
-                <FaInfoCircle className="h-5 w-5 text-red-500" />
-              </div>
-              <div className="ml-3">
-                <p className="text-sm text-red-700">{error}</p>
-              </div>
-            </div>
+          <div className="glass-panel p-4 border-rose-200 bg-rose-50/50 flex items-center gap-3 text-rose-600 text-sm font-bold">
+            <FaInfoCircle /> {error}
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* LEFT COLUMN - Service Details & Worker Selection */}
-          <div className="lg:col-span-2 space-y-8">
-
-            {/* Service Hero Card */}
-            <div className="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100">
-              <div className="relative h-48 bg-gray-200">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
+          {/* 🚀 LEFT COLUMN (Service & Pros) */}
+          <div className="lg:col-span-8 space-y-10">
+            {/* HERO CARD */}
+            <div className="glass-panel overflow-hidden relative shadow-2xl shadow-slate-200/50 rounded-[3rem]">
+              <div className="relative h-[30rem]">
                 {service.image ? (
                   <>
-                    <img
-                      src={getImageUrl(service.image)}
-                      alt={service.name}
-                      className="w-full h-full object-cover"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent"></div>
+                    <img src={getImageUrl(service.image)} alt={service.name} className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-slate-900/95 via-slate-900/40 to-transparent"></div>
                   </>
                 ) : (
-                  <div className="w-full h-full bg-gradient-to-r from-blue-600 to-indigo-700"></div>
+                  <div className="w-full h-full bg-gradient-to-br from-azure-blue to-indigo-700"></div>
                 )}
-                <div className="absolute bottom-0 left-0 p-6 text-white z-10">
-                  <span className="inline-block px-3 py-1 bg-white/20 backdrop-blur-sm rounded-full text-xs font-semibold mb-2">
-                    {service.category}
-                  </span>
-                  <h2 className="text-3xl font-bold text-shadow-sm">{service.name}</h2>
+                <div className="absolute bottom-0 left-0 p-10 w-full z-10">
+                  <div className="flex items-center gap-2 mb-4">
+                    <span className="bg-azure-blue/90 backdrop-blur-md px-4 py-2 rounded-xl text-[10px] font-black text-white uppercase tracking-widest border border-white/20 shadow-lg shadow-blue-500/30">{service.category}</span>
+                    <span className="bg-white/10 backdrop-blur-md px-4 py-2 rounded-xl text-[10px] font-black text-white uppercase tracking-widest border border-white/10">Premium Selection</span>
+                  </div>
+                  <h2 className="text-5xl font-black text-white drop-shadow-2xl tracking-tighter leading-[1.1] max-w-3xl">{service.name}</h2>
                 </div>
               </div>
-
-              <div className="p-6">
-                <div className="flex flex-wrap gap-6 mb-6 text-sm text-gray-600">
+              <div className="p-10">
+                <div className="flex gap-10 mb-8 items-center">
                   <div className="flex items-center gap-2">
-                    <FaClock className="text-blue-500" />
-                    <span>{service.duration} Hours</span>
+                    <div className="p-2 bg-blue-50 rounded-lg"><FaRegClock className="text-azure-blue" /></div>
+                    <span className="text-sm font-black text-deep-slate">{service.duration} Hours Est.</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <FaStar className="text-yellow-400" />
-                    <span>4.8 (120+ Reviews)</span>
+                    <div className="p-2 bg-yellow-50 rounded-lg"><FaStar className="text-yellow-400" /></div>
+                    <span className="text-sm font-black text-deep-slate">4.8 (120+ Reviews)</span>
                   </div>
                 </div>
-
-                <h3 className="font-semibold text-gray-900 mb-2">What's Included</h3>
-                <p className="text-gray-600 leading-relaxed">
-                  {service.description || "Professional service delivered by verified experts. Includes initial consultation, service execution, and post-service cleanup."}
-                </p>
+                <p className="text-muted-slate font-medium leading-[1.6] text-lg max-w-3xl">{service.description || 'Professional service delivered by verified experts with quality assurance guaranteed.'}</p>
               </div>
             </div>
 
-            {/* Professional Selection */}
-            <div>
-              <h3 className="text-xl font-bold text-gray-900 mb-4">Select Assigned Professional</h3>
-              <p className="text-gray-500 mb-6 text-sm">Choose a top-rated professional for your {service.category.toLowerCase()} service.</p>
+            {/* 🚀 WORKER SELECTION GRID */}
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <h3 className="text-2xl font-black text-deep-slate tracking-tight flex items-center gap-3">
+                  Assigned Professionals
+                </h3>
+                {/* 🚀 RESTORED AI ANALYSIS BUTTON */}
+                {!service.aiAnalysis ? (
+                  <button
+                    onClick={async () => {
+                      if (!formData.locationCoords) { setError("Set your location to run AI Analysis."); return; }
+                      setAiLoading(true);
+                      try {
+                        const { data } = await axios.post('/ai/predict-price', { serviceId: service._id, userCoords: formData.locationCoords });
+                        setService(prev => ({ ...prev, aiAnalysis: data }));
+                      } catch (err) { console.error("AI Analysis failed"); } finally { setAiLoading(false); }
+                    }}
+                    disabled={aiLoading}
+                    className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl text-[11px] font-black uppercase tracking-widest hover:bg-azure-blue transition-all disabled:opacity-50 shadow-lg shadow-slate-200"
+                  >
+                    {aiLoading ? <FaMagic className="animate-spin" /> : <FaRobot />} Run AI Smart Analysis
+                  </button>
+                ) : (
+                  <span className="flex items-center gap-2 text-blue-600 font-black text-[10px] uppercase tracking-widest bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100">
+                    <FaCheckCircle /> Analysis Complete
+                  </span>
+                )}
+              </div>
 
-              {workersList && workersList.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {sortedWorkers.map((worker, idx) => {
-                    const isSelected = formData.workerId === worker._id;
-                    const distance = calculateDistance(
-                      formData.locationCoords?.lat, formData.locationCoords?.lng,
-                      worker.coordinates?.lat, worker.coordinates?.lng
-                    );
-                    const travelFee = getTravelFee(distance);
-
-                    // --- skillPricing-aware charge resolution ---
-                    // --- skillPricing-aware charge resolution (Priority: Admin Assigned > Skill Registry > Default) ---
-                    const workerCharge = parseFloat(worker.serviceSpecificPrice)
-                      || worker.activePrice
-                      || service.price;
-                    const rateType = (parseFloat(worker.serviceSpecificPrice) > 0) ? 'fixed' : (worker.pricingType || 'fixed');
-                    const hasCustomRate = (parseFloat(worker.serviceSpecificPrice) > 0) || worker.isCustomRate;
-                    const estDuration = worker.estimatedTime || service.duration || 1;
-
-                    return (
-                      <div
-                        key={worker._id}
-                        onClick={() => handleWorkerSelect(worker._id)}
-                        className={`relative p-5 rounded-xl border-2 cursor-pointer transition-all duration-200 group hover:shadow-md ${isSelected
-                          ? 'border-blue-600 bg-blue-50/50'
-                          : 'border-gray-200 bg-white hover:border-blue-300'
-                          }`}
-                      >
-                        {isSelected && (
-                          <div className="absolute top-4 right-4 text-blue-600">
-                            <FaCheckCircle size={20} />
+              {/* AI ANALYSIS RESULTS PANEL */}
+              {service.aiAnalysis && (
+                <div className="glass-panel p-6 border-blue-200 bg-blue-50/50 animate-in slide-in-from-top duration-500 rounded-[2rem]">
+                  <div className="flex flex-col md:flex-row gap-6 items-start">
+                    <div className="flex-1 space-y-4">
+                      <div className="flex items-center gap-3">
+                        <div className="p-3 bg-blue-600 text-white rounded-2xl shadow-lg shadow-blue-200"><FaMagic /></div>
+                        <div>
+                          <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest">AI Comparison Insight</p>
+                          <h4 className="text-lg font-black text-deep-slate">Smart Match Score: {service.aiAnalysis.matchScore}/100</h4>
+                        </div>
+                      </div>
+                      <p className="text-blue-900 text-sm font-bold bg-white/60 p-4 rounded-2xl border border-blue-100 italic">" {service.aiAnalysis.reasoning} "</p>
+                    </div>
+                    <div className="w-full md:w-auto bg-white/80 p-5 rounded-[2rem] border border-blue-200 shadow-xl shadow-blue-500/5">
+                      <p className="text-[10px] font-black text-muted-slate uppercase mb-3 text-center">Value Comparison</p>
+                      <div className="space-y-3">
+                        {service.aiAnalysis.comparison?.map((c, i) => (
+                          <div key={i} className={`flex items-center gap-4 p-3 rounded-xl border ${c.name === service.aiAnalysis.winner ? 'bg-blue-50 border-blue-200' : 'bg-gray-50 border-gray-100 opacity-60'}`}>
+                            <div className="flex-1">
+                              <p className="text-xs font-black text-deep-slate">{c.name}</p>
+                              <p className="text-[9px] font-bold text-muted-slate uppercase">{c.matchScore}% Match</p>
+                            </div>
+                            <p className="text-sm font-black text-deep-slate">{c.total}</p>
                           </div>
-                        )}
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
-                        <div className="flex items-start gap-4">
-                          <div className="h-14 w-14 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden border-2 border-white shadow-sm flex-shrink-0">
-                            {worker.profileImage ? (
-                              <img src={getImageUrl(worker.profileImage)} alt={worker.name} className="h-full w-full object-cover" />
-                            ) : (
-                              <FaUser className="text-gray-400 text-xl" />
-                            )}
+              {/* WORKER GRID */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {filteredWorkers.map((w, idx) => {
+                  const selected = formData.workerId === w._id;
+                  const wLat = w.coordinates?.lat || w.coordinates?.latitude;
+                  const wLng = w.coordinates?.lng || w.coordinates?.longitude;
+                  const uLat = formData.locationCoords?.lat || formData.locationCoords?.latitude;
+                  const uLng = formData.locationCoords?.lng || formData.locationCoords?.longitude;
+
+                  const charge = parseFloat(w.serviceSpecificPrice) || w.activePrice || service.price || 0;
+                  const d = formData.locationCoords ? calculateDistance(uLat, uLng, wLat, wLng) : null;
+                  const t = getTravelFee(d);
+
+                  return (
+                    <div key={w._id} onClick={() => setFormData({ ...formData, workerId: w._id })} className={`glass-panel p-6 cursor-pointer transition-all duration-300 relative group rounded-[2.5rem] border-2 shadow-sm ${selected ? 'border-azure-blue bg-blue-50/50 shadow-blue-500/10' : 'border-white hover:border-blue-200 hover:shadow-xl hover:-translate-y-1'}`}>
+                      {selected && <div className="absolute top-5 right-5 text-azure-blue p-2 bg-white rounded-full shadow-lg border border-blue-50"><FaCheckCircle size={20} /></div>}
+                      <div className="flex gap-6 items-center">
+                        <div className="w-20 h-20 rounded-[2rem] bg-slate-100 overflow-hidden border-4 border-white shadow-lg flex-shrink-0 group-hover:scale-105 transition-transform">
+                          {w.profileImage ? (
+                            <img 
+                              src={getImageUrl(w.profileImage)} 
+                              alt={w.name}
+                              className="w-full h-full object-cover" 
+                              onError={(e) => {
+                                e.target.onerror = null;
+                                e.target.style.display = 'none';
+                                e.target.nextSibling.style.display = 'block';
+                              }}
+                            />
+                          ) : null}
+                          {(!w.profileImage || w.profileImage) && (
+                            <FaUser 
+                              className="text-slate-300 w-full h-full p-6" 
+                              style={{ display: w.profileImage ? 'none' : 'block' }} 
+                            />
+                          )}
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="text-base font-black text-deep-slate group-hover:text-azure-blue transition-colors">{w.name}</p>
+                            {w.name === service.aiAnalysis?.winner && <span className="bg-blue-600 text-white text-[8px] px-2 py-1 rounded font-black uppercase shadow-sm">AI Winner</span>}
+                            {idx === 0 && <span className="bg-emerald-100 text-emerald-600 text-[8px] px-2 py-1 rounded font-black uppercase">Top Rate</span>}
+                          </div>
+                          <div className="flex items-center gap-1 text-[11px] text-yellow-500 font-black mt-1">
+                            <FaStar /> {w.rating?.toFixed(1) || 'New'} <span className="text-muted-slate font-bold font-mono ml-1">({w.reviewCount || 0} reviews)</span>
                           </div>
 
-                          <div>
-                            <div className="flex items-center justify-between">
-                              <h4 className={`font-bold ${isSelected ? 'text-blue-900' : 'text-gray-900'}`}>
-                                {worker.name}
-                              </h4>
-                              {idx === 0 && workersList.length > 1 && (
-                                <span className="bg-green-100 text-green-700 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
-                                  Best Deal
-                                </span>
-                              )}
-                              {!hasCustomRate && (
-                                <span className="bg-blue-50 text-blue-500 text-[8px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ml-1 border border-blue-100">
-                                  Platform Standard
-                                </span>
-                              )}
+                          <div className="mt-5 pt-5 border-t border-slate-200/50 flex justify-between items-end">
+                            <div>
+                              <p className="text-[9px] font-black text-muted-slate uppercase tracking-widest opacity-60 mb-1">Total Quote</p>
+                              <p className="text-lg font-black text-deep-slate tracking-tighter">₹{(charge + t).toLocaleString()}</p>
                             </div>
-                            <div className="flex items-center gap-1 text-sm text-yellow-500 mt-1">
-                              <FaStar />
-                              <span className="font-medium text-gray-700">{worker.rating?.toFixed(1) || 'New'}</span>
-                              <span className="text-gray-400 text-xs ml-1">({worker.reviewCount || 0} reviews)</span>
+                            <div className="text-right">
+                              <p className="text-[9px] font-black text-muted-slate uppercase tracking-widest opacity-60 mb-1">Distance</p>
+                              <p className="text-[11px] font-black text-azure-blue">{d !== null ? `${d} KM` : '---'}</p>
                             </div>
-                            
-                            {/* Breakdown */}
-                            <div className="mt-3 pt-3 border-t border-gray-100 grid grid-cols-3 gap-2 text-[10px] font-bold uppercase tracking-tighter">
-                              <div className="text-gray-500">
-                                <p className="opacity-50">Service</p>
-                                <p className="text-gray-900 flex items-center gap-1">
-                                  ₹{workerCharge}
-                                  {/* Rate type badge */}
-                                  {rateType === 'hourly' ? (
-                                    <span className="text-[9px] bg-blue-100 text-blue-600 px-1 rounded font-black">/hr</span>
-                                  ) : (
-                                    <span className="text-[9px] bg-green-100 text-green-600 px-1 rounded font-black">Fixed</span>
-                                  )}
-                                </p>
-                                {rateType === 'hourly' && estDuration && (
-                                  <p className="text-[9px] text-gray-400 font-medium">~{estDuration < 60 ? `${estDuration}m` : `${Math.round(estDuration / 60 * 10) / 10}h`} job</p>
-                                )}
-                              </div>
-                              <div className="text-gray-500">
-                                <p className="opacity-50">Travel ({distance !== null ? `${distance}km` : '---'})</p>
-                                <p className="text-blue-600">₹{distance !== null ? travelFee : '--'}</p>
-                              </div>
-                              <div className="text-right">
-                                <p className="opacity-50">Total</p>
-                                <p className="text-gray-900 text-xs font-black">₹{distance !== null ? workerCharge + travelFee : `${workerCharge} +`}</p>
-                              </div>
-                            </div>
-
-                            <p className="text-xs text-gray-500 mt-2 flex items-center gap-1">
-                              <FaMapMarkerAlt size={10} /> {worker.location || 'Local Expert'}
-                            </p>
                           </div>
                         </div>
                       </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="p-8 bg-yellow-50 rounded-xl border border-yellow-100 text-center">
-                  <p className="text-yellow-800">No specific professionals found for this category. We will assign the best available expert for you.</p>
-                </div>
-              )}
+                    </div>
+                  );
+                })}
+                {formData.locationCoords && filteredWorkers.length === 0 && (
+                  <div className="col-span-full glass-panel p-10 text-center space-y-4 rounded-[3rem]">
+                    <div className="mx-auto w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center text-slate-400"><FaMapMarkerAlt size={24} /></div>
+                    <div className="max-w-md mx-auto">
+                      <h4 className="text-xl font-black text-deep-slate">No Professionals Nearby</h4>
+                      <p className="text-muted-slate text-sm font-medium mt-2">
+                        {formData.locationCoords 
+                          ? `To maintain quality, we only show professionals within a 50KM radius of your selected area. Try a different location or check back soon!` 
+                          : `Please set your service location above to find available professionals in your area.`}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
-          {/* RIGHT COLUMN - Booking Form */}
-          <div className="lg:col-span-1">
-            <div className="sticky top-8 space-y-6">
-              <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-100">
-                <h3 className="text-xl font-bold text-gray-900 mb-6">Booking Details</h3>
+          {/* 🚀 RIGHT COLUMN (Reservation & Billing) */}
+          <div className="lg:col-span-4 lg:sticky lg:top-10 space-y-8 pb-10">
+            <div className="glass-panel p-10 space-y-8 shadow-2xl shadow-slate-200/50 border border-white/60 bg-white/70 backdrop-blur-xl rounded-[3rem]">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xl font-black text-deep-slate uppercase tracking-widest opacity-40">Reservation</h3>
+                <div className="p-2 bg-azure-blue shadow-lg shadow-blue-500/20 text-white rounded-xl"><FaChartBar /></div>
+              </div>
 
-                <form onSubmit={handleSubmit} className="space-y-5">
-                  {/* Date Input */}
+              <div className="space-y-6">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-muted-slate uppercase tracking-widest block pl-1">Booking Date</label>
+                    <input type="date" name="scheduledDate" value={formData.scheduledDate} onChange={handleChange} min={new Date().toISOString().split('T')[0]} className="w-full bg-white/60 border border-white p-4 rounded-2xl text-xs font-black text-deep-slate focus:ring-4 focus:ring-azure-blue/10 outline-none transition-all shadow-sm" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-muted-slate uppercase tracking-widest block pl-1">Start Time</label>
+                    <select name="scheduledTime" value={formData.scheduledTime} onChange={handleChange} className="w-full bg-white/60 border border-white p-4 rounded-2xl text-xs font-black text-deep-slate focus:ring-4 focus:ring-azure-blue/10 outline-none transition-all shadow-sm appearance-none cursor-pointer">
+                      <option value="">Time...</option>
+                      {['09:00', '10:00', '11:00', '12:00', '14:00', '15:00', '16:00'].map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-muted-slate uppercase tracking-widest block pl-1">Service Location</label>
+                  <LocationPicker onLocationSelect={handleLocationSelect} showRadius={true} radius={50} />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-muted-slate uppercase tracking-widest block pl-1">Special Notes</label>
+                  <textarea name="notes" value={formData.notes} onChange={handleChange} placeholder="Any specific requirements for your pro..." rows="3" className="w-full bg-white/60 border border-white p-5 rounded-[2rem] text-sm font-medium outline-none resize-none focus:ring-4 focus:ring-azure-blue/10 transition-all shadow-sm" />
+                </div>
+              </div>
+
+              {/* BILLING BREAKDOWN */}
+              <div className="pt-8 border-t border-slate-200/50 space-y-5">
+                <div className="flex justify-between items-center group">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Preferred Date</label>
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <FaCalendarAlt className="text-gray-400" />
-                      </div>
-                      <input
-                        type="date"
-                        name="scheduledDate"
-                        value={formData.scheduledDate}
-                        onChange={handleChange}
-                        min={new Date().toISOString().split('T')[0]}
-                        className="pl-10 w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all outline-none"
-                        required
-                      />
-                    </div>
+                    <p className="text-[10px] font-black text-muted-slate uppercase tracking-widest opacity-50">Core Service</p>
+                    <p className="text-sm font-black text-deep-slate">Base Charge</p>
                   </div>
+                  <span className="text-base font-black text-deep-slate">₹{basePrice.toLocaleString()}</span>
+                </div>
 
-                  {/* Time Input */}
+                <div className="flex justify-between items-center">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Preferred Time</label>
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <FaClock className="text-gray-400" />
-                      </div>
-                      <select
-                        name="scheduledTime"
-                        value={formData.scheduledTime}
-                        onChange={handleChange}
-                        className="pl-10 w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all outline-none appearance-none bg-white"
-                        required
-                      >
-                        <option value="">Select Time</option>
-                        {['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00'].map(time => (
-                          <option key={time} value={time}>{time}</option>
-                        ))}
-                      </select>
+                    <p className="text-[10px] font-black text-muted-slate uppercase tracking-widest opacity-50">Support & Logistics</p>
+                    <p className="text-sm font-black text-deep-slate">Travel Charge</p>
+                  </div>
+                  <span className={`text-base font-black ${isConfigured && formData.locationCoords ? 'text-azure-blue' : 'text-slate-300 italic'}`}>
+                    {isConfigured && formData.locationCoords ? `₹${travelCharge.toLocaleString()}` : 'Pending Location'}
+                  </span>
+                </div>
+
+                {(volDisc > 0 || firstDisc > 0) && (
+                  <div className="bg-emerald-50/70 p-5 rounded-[2rem] border border-emerald-100 space-y-2 shadow-sm animate-in fade-in zoom-in duration-300">
+                    {volDisc > 0 && <div className="flex justify-between text-[11px] font-black text-emerald-600 uppercase"><span>Volume Savings</span><span>-₹{volDisc.toLocaleString()}</span></div>}
+                    {firstDisc > 0 && <div className="flex justify-between text-[11px] font-black text-emerald-600 uppercase"><span>First Booking Credit</span><span>-₹{firstDisc.toLocaleString()}</span></div>}
+                  </div>
+                )}
+
+                <div className="pt-8 border-t-4 border-azure-blue/10">
+                  <div className="flex justify-between items-end mb-8">
+                    <div>
+                      <p className="text-[11px] font-black text-muted-slate uppercase tracking-widest mb-1">Final Payable</p>
+                      <p className="text-[9px] font-bold text-azure-blue uppercase tracking-tighter italic">Professional Service Guaranteed</p>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-5xl font-black text-deep-slate tracking-tighter leading-none">
+                        {total ? `₹${Math.round(total).toLocaleString()}` : '—'}
+                      </span>
                     </div>
                   </div>
 
-                  {/* Location Picker */}
-                  <div className="pt-2">
-                    <LocationPicker onLocationSelect={handleLocationSelect} />
+                  <button onClick={handleSubmit} disabled={loading} className="w-full py-6 bg-azure-blue text-white rounded-[2rem] font-black text-xs uppercase tracking-widest shadow-2xl shadow-blue-500/40 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-3">
+                    {loading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> : <><FaCheckCircle /> SECURE FAST BOOKING</>}
+                  </button>
+                  <div className="mt-6 flex items-center justify-center gap-6 opacity-40 grayscale group-hover:grayscale-0 transition-all">
+                    <span className="text-[9px] font-black text-muted-slate flex items-center gap-1"><FaMagic aria-hidden="true" /> SSL ENCRYPTED</span>
+                    <span className="text-[9px] font-black text-muted-slate flex items-center gap-1"><FaUser aria-hidden="true" /> SECURE PAY</span>
                   </div>
-
-                  {/* Notes Input */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Special Instructions</label>
-                    <textarea
-                      name="notes"
-                      value={formData.notes}
-                      onChange={handleChange}
-                      rows="2"
-                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all outline-none resize-none"
-                      placeholder="Gate code, parking info, etc."
-                    />
-                  </div>
-
-                  {/* 🚀 New Transparent Bill Summary */}
-                  <div className="pt-6 border-t border-gray-100 space-y-4">
-                    {/* Base Service Rate */}
-                    <div className="flex justify-between items-center group">
-                      <div className="flex flex-col text-left">
-                        <span className="text-sm font-bold text-gray-800">Service Charge</span>
-                        <span className="text-[10px] text-gray-400 capitalize">
-                          {pricingType === 'standard' ? 'Platform Standard' : pricingType === 'starting' ? 'Starting from' : `${pricingType} Rate`}
-                        </span>
-                      </div>
-                      <span className="text-base font-black text-gray-900">₹{basePrice.toLocaleString()}</span>
-                    </div>
-
-                    {/* Estimated Duration Info */}
-                    {pricingType === 'hourly' && (
-                      <div className="flex justify-between items-center text-[11px] text-gray-500 bg-gray-50 p-2 rounded-lg border border-dashed border-gray-200">
-                        <span className="flex items-center gap-1"><FaRegClock className="text-gray-400" /> Estimated Duration</span>
-                        <span className="font-bold text-gray-700">{estimatedTime} Hours</span>
-                      </div>
-                    )}
-
-                    {/* Travel Fee */}
-                    <div className="flex justify-between items-center text-left">
-                      <div className="flex flex-col">
-                        <span className="text-sm font-bold text-gray-800">Travel Fee</span>
-                        <span className="text-[10px] text-gray-400">{isConfigured ? 'Based on distance' : 'Calculating...'}</span>
-                      </div>
-                      {!isConfigured ? (
-                        <span className="text-[10px] font-bold text-gray-400 bg-gray-50 px-2 py-0.5 rounded border border-gray-100 italic">
-                          Depends on selection
-                        </span>
-                      ) : travelCharge !== null ? (
-                        <span className="text-base font-black text-indigo-600">₹{travelCharge.toLocaleString()}</span>
-                      ) : (
-                        <span className="text-[10px] font-bold text-amber-500 bg-amber-50 px-2 py-0.5 rounded border border-amber-100 italic flex items-center gap-1 animate-pulse">
-                          <FaMapPin /> Select Location
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Discounts Section */}
-                    {(firstTimeDiscount > 0 || volumeDiscount > 0) && (
-                      <div className="space-y-2 pt-2 border-t border-dashed border-gray-100">
-                        {firstTimeDiscount > 0 && (
-                          <div className="flex justify-between items-center text-pink-600 font-bold bg-pink-50 p-2 rounded-xl border border-pink-100">
-                            <span className="flex items-center gap-1.5 text-[11px]">
-                              <div className="p-1 bg-white rounded-md shadow-sm"><FaPercentage size={8} /></div>
-                              First Booking Offer
-                            </span>
-                            <span className="text-sm">-₹{firstTimeDiscount}</span>
-                          </div>
-                        )}
-                        {volumeDiscount > 0 && (
-                          <div className="flex justify-between items-center text-emerald-600 font-bold bg-emerald-50 p-2 rounded-xl border border-emerald-100">
-                            <span className="flex items-center gap-1.5 text-[11px]">
-                              <div className="p-1 bg-white rounded-md shadow-sm"><FaPercentage size={8} /></div>
-                              Volume Discount
-                            </span>
-                            <span className="text-sm">-₹{volumeDiscount.toLocaleString()}</span>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Total Bar */}
-                    <div className="pt-4 mt-2 border-t-2 border-gray-100">
-                      <div className="flex justify-between items-end mb-1">
-                        <span className="text-sm font-black text-gray-500 uppercase tracking-wider mb-1">Total Amount</span>
-                        <div className="text-right">
-                          {isConfigured && potentialSavings > 0 && (
-                            <div className="text-[10px] text-emerald-600 font-black mb-1 flex items-center justify-end gap-1">
-                              <span className="bg-emerald-100/50 px-2 py-0.5 rounded">SAVING ₹{Math.round(potentialSavings).toLocaleString()}</span>
-                            </div>
-                          )}
-                          <span className="text-4xl font-black text-indigo-600 leading-none">
-                            {isConfigured ? `₹${Math.round(total).toLocaleString()}` : '—'}
-                          </span>
-                        </div>
-                      </div>
-                      
-                      {!isConfigured ? (
-                         <div className="mt-3 bg-indigo-50/50 p-2.5 rounded-xl border border-indigo-100/50 animate-pulse">
-                            <p className="text-[10px] text-indigo-600 font-bold flex items-center gap-1.5 justify-center">
-                               <FaInfoCircle /> Select a professional to calculate final price
-                            </p>
-                         </div>
-                      ) : (
-                        <p className="text-[10px] text-gray-400 font-medium text-right mt-2 flex items-center justify-end gap-1 italic">
-                           <FaInfoCircle size={10} /> "Final price may vary based on professional and distance"
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="mt-6">
-                    {!service.aiAnalysis ? (
-                      <button
-                        type="button"
-                        disabled={loading}
-                        onClick={async () => {
-                          try {
-                            setLoading(true);
-                            const { data } = await axios.post('/ai/predict-price', { 
-                              serviceId: service._id,
-                              userCoords: formData.locationCoords
-                            });
-                            setService(prev => ({ ...prev, aiAnalysis: data }));
-                          } catch (err) {
-                            console.error("AI Analysis failed");
-                          } finally {
-                            setLoading(false);
-                          }
-                        }}
-                        className="w-full flex items-center justify-center gap-3 py-4 bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-2xl font-bold text-sm shadow-lg shadow-indigo-100 hover:shadow-xl hover:scale-[1.02] transition-all group overflow-hidden relative"
-                      >
-                        <div className="absolute inset-0 bg-white/20 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 skew-x-[-20deg]"></div>
-                        <FaMagic className={`${loading ? 'animate-spin' : ''}`} /> 
-                        {loading ? 'Locating Experts...' : 'Compare Top Nearby Pros'}
-                      </button>
-                    ) : (
-                      (() => {
-                        const ai = service.aiAnalysis;
-                        const sb = ai.scoreBreakdown || {};
-                        return (
-                          <div className="bg-white rounded-3xl border border-indigo-100 shadow-2xl p-6 relative overflow-hidden">
-
-                                    {/* ── Header: Score + Winner badge ── */}
-                                    <div className="flex items-center justify-between mb-5">
-                                        <div>
-                                            <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-400 mb-1">Expert Match Score</h4>
-                                            <div className="flex items-baseline gap-1">
-                                                <span className="text-4xl font-black text-gray-900">
-                                                    {ai.matchScore ?? ai.smartScore ?? '—'}
-                                                </span>
-                                                <span className="text-xs font-bold text-gray-400">/ 100</span>
-                                            </div>
-                                        </div>
-                                        <div className="px-4 py-1.5 bg-green-500 text-white rounded-full text-[10px] font-black uppercase tracking-widest shadow-sm">
-                                            Best Choice: {ai.winner}
-                                        </div>
-                                    </div>
-
-                                    {/* ── Score Breakdown Bars ── */}
-                                    {ai.scoreBreakdown && (
-                                        <div className="mb-5 space-y-2.5">
-                                            {/* Collapsible "How is this calculated?" */}
-                                            <details className="group">
-                                                <summary className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider cursor-pointer select-none list-none flex items-center gap-1 mb-3">
-                                                    <span>How is this score calculated?</span>
-                                                    <span className="group-open:rotate-180 transition-transform inline-block">▾</span>
-                                                </summary>
-                                                <p className="text-[10px] text-gray-500 leading-relaxed mb-3 pl-1 border-l-2 border-indigo-100">
-                                                    Price competitiveness (35pts) + Proximity (30pts) + Rating (25pts) + Rate type (10pts) = 100pts total
-                                                </p>
-                                            </details>
-
-                                            {/* Price bar */}
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-[10px] font-bold text-gray-500 w-20 shrink-0">Price</span>
-                                                <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
-                                                    <div
-                                                        className="h-full bg-green-500 rounded-full transition-all duration-700"
-                                                        style={{ width: `${Math.round((sb.priceScore / 35) * 100)}%` }}
-                                                    />
-                                                </div>
-                                                <span className="text-[10px] font-black text-gray-700 w-10 text-right">{sb.priceScore}/35</span>
-                                            </div>
-                                            {/* Proximity bar */}
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-[10px] font-bold text-gray-500 w-20 shrink-0">Proximity</span>
-                                                <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
-                                                    <div
-                                                        className="h-full bg-blue-500 rounded-full transition-all duration-700"
-                                                        style={{ width: `${Math.round((sb.proximityScore / 30) * 100)}%` }}
-                                                    />
-                                                </div>
-                                                <span className="text-[10px] font-black text-gray-700 w-10 text-right">{sb.proximityScore}/30</span>
-                                            </div>
-                                            {/* Rating bar */}
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-[10px] font-bold text-gray-500 w-20 shrink-0">Rating</span>
-                                                <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
-                                                    <div
-                                                        className="h-full bg-yellow-400 rounded-full transition-all duration-700"
-                                                        style={{ width: `${Math.round((sb.ratingScore / 25) * 100)}%` }}
-                                                    />
-                                                </div>
-                                                <span className="text-[10px] font-black text-gray-700 w-10 text-right">{sb.ratingScore}/25</span>
-                                            </div>
-                                            {/* Rate type bar */}
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-[10px] font-bold text-gray-500 w-20 shrink-0">Rate Type</span>
-                                                <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
-                                                    <div
-                                                        className="h-full bg-purple-500 rounded-full transition-all duration-700"
-                                                        style={{ width: `${Math.round((sb.rateTypeBonus / 10) * 100)}%` }}
-                                                    />
-                                                </div>
-                                                <span className="text-[10px] font-black text-gray-700 w-10 text-right">{sb.rateTypeBonus}/10</span>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* ── Per-Provider Comparison Cards ── */}
-                                    <div className="space-y-3 mb-5">
-                                        {ai.comparison?.map((prov, idx) => (
-                                            <div key={idx} className={`p-4 rounded-2xl border transition-all ${prov.name === ai.winner ? 'bg-indigo-50/50 border-indigo-200 ring-1 ring-indigo-100' : 'bg-gray-50 border-gray-100 opacity-80'}`}>
-                                                <div className="flex justify-between items-center mb-3">
-                                                    <h5 className="font-bold text-gray-900 text-sm flex items-center gap-2">
-                                                        <div className={`w-2 h-2 rounded-full ${prov.name === ai.winner ? 'bg-indigo-600' : 'bg-gray-400'}`} />
-                                                        {prov.name}
-                                                    </h5>
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="text-[10px] font-bold text-gray-400">{prov.distance} away</span>
-                                                        {prov.matchScore !== undefined && (
-                                                            <span className={`text-[9px] font-black px-2 py-0.5 rounded-full ${prov.name === ai.winner ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-600'}`}>
-                                                                Score: {prov.matchScore}
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                </div>
-
-                                                <div className="grid grid-cols-3 gap-2 text-[10px] font-bold uppercase tracking-tighter">
-                                                    <div className="text-gray-500">
-                                                        <p className="mb-0.5 opacity-60">Service</p>
-                                                        <p className="text-gray-900">{prov.charge}</p>
-                                                    </div>
-                                                    <div className="text-gray-500">
-                                                        <p className="mb-0.5 opacity-60">Travel</p>
-                                                        <p className="text-indigo-600">{prov.travel}</p>
-                                                    </div>
-                                                    <div className="text-right">
-                                                        <p className="mb-0.5 opacity-60">Total</p>
-                                                        <p className="text-gray-900 text-xs font-black">{prov.total}</p>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-
-                                    {/* ── Smart Efficiency Intel (dark box) ── */}
-                                    <div className="bg-slate-900 rounded-2xl p-4 text-white/90 relative group">
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <div className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
-                                            <span className="text-[10px] font-bold text-blue-400 uppercase tracking-widest italic leading-none">Smart Efficiency Intel</span>
-                                        </div>
-                                        <p className="text-[11px] leading-relaxed font-medium italic">
-                                            "{ai.reasoning} {ai.savingsDetail}"
-                                        </p>
-                                    </div>
-
-                                    <button
-                                        onClick={() => setService(prev => ({ ...prev, aiAnalysis: null }))}
-                                        className="w-full mt-4 text-[10px] font-bold text-gray-300 hover:text-indigo-600 transition-colors uppercase tracking-widest text-center"
-                                    >
-                                        Reset Matcher
-                                    </button>
-
-                                    {/* Aesthetic background blur */}
-                                    <div className="absolute top-[-20px] right-[-20px] w-24 h-24 bg-blue-400/10 blur-3xl rounded-full" />
-                                    <div className="absolute bottom-[-20px] left-[-20px] w-24 h-24 bg-indigo-400/10 blur-3xl rounded-full" />
-                                </div>
-                                );
-                            })()
-                        )}
-                    </div>
-
-                    {/* Action Buttons */}
-                    <div className="flex flex-col gap-3">
-                    <button
-                      type="button"
-                      onClick={handleAddToCart}
-                      disabled={loading}
-                      className="w-full bg-white text-blue-600 border-2 border-blue-600 py-3 rounded-xl font-bold text-lg hover:bg-blue-50 focus:outline-none transition-all disabled:opacity-70 flex items-center justify-center gap-2"
-                    >
-                      <FaShoppingCart />
-                      Add to Cart
-                    </button>
-
-                    <div className="bg-yellow-50 border border-yellow-200 p-3 rounded-xl mb-4">
-                      <p className="text-xs text-yellow-800 font-bold flex items-center gap-2">
-                        <FaInfoCircle className="text-yellow-600 shrink-0" />
-                        DEVELOPER TEST MODE TIP:
-                      </p>
-                      <p className="text-[10px] text-yellow-700 mt-1">
-                        When the Razorpay modal opens, <b>DO NOT</b> use dummy credit cards as they trigger International Card locks. 
-                        Instead, select <b>UPI</b> and type <code className="bg-white px-1 py-0.5 rounded text-blue-600 font-black">success@razorpay</code> to simulate a successful payment!
-                      </p>
-                    </div>
-
-                    <button
-                      type="submit"
-                      disabled={loading}
-                      className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-200 transition-all disabled:opacity-70 shadow-lg shadow-blue-200"
-                    >
-                      {loading ? 'Processing...' : 'Confirm Booking Now'}
-                    </button>
-                  </div>
-
-                  <p className="text-xs text-center text-gray-400 mt-4">
-                    By booking, you agree to our Terms of Service.
-                  </p>
-
-                  {cancelMessage && (
-                    <p className="text-sm text-amber-600 text-center mt-2 bg-amber-50 p-2 rounded-lg border border-amber-100">
-                      {cancelMessage}
-                    </p>
-                  )}
-                </form>
+                </div>
               </div>
             </div>
           </div>

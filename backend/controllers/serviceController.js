@@ -19,7 +19,13 @@ exports.getCategories = async (req, res) => {
       'Smart Home'
     ];
 
-    const dbCategories = await Service.distinct('category');
+    let dbCategories = [];
+    try {
+      // Use a shorter timeout to avoid hanging the entire page if DB is connecting
+      dbCategories = await Service.distinct('category').maxTimeMS(5000);
+    } catch (dbErr) {
+      console.warn('⚠️ MongoDB not ready or unreachable. Falling back to master categories list.');
+    }
     
     // Merge, remove duplicates, and ensure 'AC Repair' is removed (merged into Appliance Repair)
     const allCategories = [...new Set([...masterCategories, ...dbCategories])]

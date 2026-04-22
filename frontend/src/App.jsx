@@ -22,6 +22,7 @@ import Earnings from './components/worker/Earnings';
 import AvailabilityCalendar from './components/worker/AvailabilityCalendar';
 import WorkerLayout from './components/worker/WorkerLayout';
 import WorkerSettings from './components/worker/WorkerSettings';
+import AdminLayout from './components/admin/AdminLayout';
 import AdminDashboard from './components/admin/AdminDashboard';
 import ServiceManagement from './components/admin/ServiceManagement';
 import AddService from './components/admin/AddService';
@@ -75,7 +76,10 @@ function AppContent() {
   const hideFooter = isDashboard;
 
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="flex flex-col min-h-screen relative">
+      {/* 🌑 Global Theme Background Dimmer */}
+      <div className="fixed inset-0 bg-dimmer pointer-events-none z-[-1]"></div>
+      
       {!hideNavbar && <Navbar />}
       <main className="flex-grow">
         <Routes>
@@ -136,6 +140,14 @@ function AppContent() {
             }
           />
           <Route
+            path="/user/services"
+            element={
+              <ProtectedRoute allowedRoles={['user']}>
+                <Services />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/user/cart"
             element={
               <ProtectedRoute allowedRoles={['user']}>
@@ -182,77 +194,23 @@ function AppContent() {
 
           {/* ── Admin Routes ──────────────────────────────── */}
           <Route
-            path="/admin/dashboard"
+            path="/admin"
             element={
               <ProtectedRoute allowedRoles={['admin']}>
-                <AdminDashboard />
+                <AdminLayout />
               </ProtectedRoute>
             }
-          />
-          <Route
-            path="/admin/services"
-            element={
-              <ProtectedRoute allowedRoles={['admin']}>
-                <ServiceManagement />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/admin/services/add"
-            element={
-              <ProtectedRoute allowedRoles={['admin']}>
-                <AddService />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/admin/services/edit/:id"
-            element={
-              <ProtectedRoute allowedRoles={['admin']}>
-                <EditService />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/admin/users"
-            element={
-              <ProtectedRoute allowedRoles={['admin']}>
-                <UserManagement />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/admin/workers"
-            element={
-              <ProtectedRoute allowedRoles={['admin']}>
-                <WorkerManagement />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/admin/bookings"
-            element={
-              <ProtectedRoute allowedRoles={['admin']}>
-                <BookingManagement />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/admin/analytics"
-            element={
-              <ProtectedRoute allowedRoles={['admin']}>
-                <AnalyticsDashboard />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/admin/settings"
-            element={
-              <ProtectedRoute allowedRoles={['admin']}>
-                <AdminSettings />
-              </ProtectedRoute>
-            }
-          />
+          >
+            <Route path="dashboard" element={<AdminDashboard />} />
+            <Route path="services" element={<ServiceManagement />} />
+            <Route path="services/add" element={<AddService />} />
+            <Route path="services/edit/:id" element={<EditService />} />
+            <Route path="users" element={<UserManagement />} />
+            <Route path="workers" element={<WorkerManagement />} />
+            <Route path="bookings" element={<BookingManagement />} />
+            <Route path="analytics" element={<AnalyticsDashboard />} />
+            <Route path="settings" element={<AdminSettings />} />
+          </Route>
 
           {/* ── 404 ───────────────────────────────────────── */}
           <Route path="*" element={<NotFound />} />

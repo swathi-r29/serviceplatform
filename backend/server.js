@@ -10,6 +10,7 @@ const socketIO = require('socket.io');
 const session = require('express-session');
 const passport = require('./config/passport');
 const connectDB = require('./config/db');
+const { calculateDistance } = require('./utils/locationHelper');
 
 // Connect to database
 connectDB();
@@ -88,9 +89,22 @@ trackingNS.on('connection', (socket) => {
   console.log('[tracking] socket connected:', socket.id);
 
   // ── WORKER: start broadcasting for a booking ─────────────────────────────
-  socket.on('worker:start-tracking', ({ bookingId, workerId }) => {
+  socket.on('worker:start-tracking', async ({ bookingId, workerId }) => {
     if (!bookingId) return;
     const room = `tracking:${bookingId}`;
+
+    // 🚀 Cache destination coords to avoid DB lookup on every ping
+    try {
+      const Booking = require('./models/Booking');
+      const bk = await Booking.findById(bookingId).select('locationCoords');
+      if (bk?.locationCoords) {
+        socket.destCoords = bk.locationCoords;
+        console.log(`[tracking] Cached destination for booking ${bookingId}:`, bk.locationCoords);
+      }
+    } catch (err) {
+      console.error('[tracking] Failed to cache destination coords:', err.message);
+    }
+
     socket.join(room);
     socket.trackingBookingId = bookingId;
     socket.trackingWorkerId  = workerId;
@@ -102,6 +116,16 @@ trackingNS.on('connection', (socket) => {
   socket.on('worker:location-update', async ({ bookingId, lat, lng, heading }) => {
     if (!bookingId || lat == null || lng == null) return;
     const room = `tracking:${bookingId}`;
+
+    // 🚀 Radius filtering: Only emit if within range of destination (e.g. 100km buffer for tracking)
+    if (socket.destCoords?.lat && socket.destCoords?.lng) {
+      const distance = calculateDistance(lat, lng, socket.destCoords.lat, socket.destCoords.lng);
+      // Use a generous 100km limit for tracking updates to allow "on the way" from distance
+      if (distance !== null && distance > 100) {
+        console.log(`⚠️ Tracking filtered: Worker is too far (${distance}km) from destination`);
+        return; 
+      }
+    }
 
     // Broadcast to all watchers in the room (including sender is fine)
     trackingNS.to(room).emit('location:updated', {

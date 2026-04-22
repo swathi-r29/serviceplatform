@@ -27,38 +27,54 @@ const createPaymentOrder = async (req, res) => {
       address,
       locationCoords,
       notes,
-      totalAmount
+      totalAmount,
+      bookingId // NEW: Support paying for an existing booking
     } = req.body;
 
-    // Validate required fields before touching Razorpay
-    if (!serviceId || !workerId || !scheduledDate || !scheduledTime || !totalAmount) {
-      return res.status(400).json({ message: 'Missing required booking details for payment order' });
+    let finalAmount = totalAmount;
+    let finalBookingDetails = null;
+
+    if (bookingId) {
+      // ── CASE A: Existing Booking ──────────────────────────────────────────
+      const existingBooking = await Booking.findById(bookingId).populate('service user');
+      if (!existingBooking) {
+        return res.status(404).json({ message: 'Booking not found' });
+      }
+      finalAmount = existingBooking.totalAmount;
+      finalBookingDetails = {
+        bookingId: existingBooking._id.toString(),
+        totalAmount: String(finalAmount),
+        serviceName: existingBooking.service?.name
+      };
+    } else {
+      // ── CASE B: New Booking (Payment-first) ────────────────────────────────
+      // Validate required fields before touching Razorpay
+      if (!serviceId || !workerId || !scheduledDate || !scheduledTime || !totalAmount) {
+        return res.status(400).json({ message: 'Missing required booking details for payment order' });
+      }
+      finalBookingDetails = {
+        serviceId,
+        workerId,
+        scheduledDate,
+        scheduledTime,
+        address: address || '',
+        locationCoords: locationCoords ? (typeof locationCoords === 'string' ? locationCoords : JSON.stringify(locationCoords)) : null,
+        notes: notes || '',
+        totalAmount: String(totalAmount),
+        userId: req.user._id.toString()
+      };
     }
 
-    const amountInPaise = Math.round(Number(totalAmount) * 100);
+    const amountInPaise = Math.round(Number(finalAmount) * 100);
     if (amountInPaise <= 0) {
       return res.status(400).json({ message: 'Invalid totalAmount — must be greater than 0' });
     }
-
-    // Booking details go into Razorpay order notes so they survive
-    // the async Razorpay lifecycle without touching MongoDB yet.
-    const bookingDetails = {
-      serviceId,
-      workerId,
-      scheduledDate,
-      scheduledTime,
-      address: address || '',
-      locationCoords: locationCoords ? JSON.stringify(locationCoords) : null,
-      notes: notes || '',
-      totalAmount: String(totalAmount),
-      userId: req.user._id.toString()
-    };
 
     const options = {
       amount: amountInPaise,
       currency: 'INR',
       receipt: `rcpt_${req.user._id.toString().slice(-6)}_${Date.now()}`,
-      notes: bookingDetails   // Razorpay persists these server-side
+      notes: finalBookingDetails   // Razorpay persists these server-side
     };
 
     const order = await razorpay.orders.create(options);
@@ -68,7 +84,7 @@ const createPaymentOrder = async (req, res) => {
       keyId: process.env.RAZORPAY_KEY_ID,
       amount: order.amount,
       currency: order.currency,
-      bookingDetails   // echo back so frontend can pass in verify step
+      bookingDetails: finalBookingDetails   // echo back so frontend can pass in verify step
     });
   } catch (error) {
     console.error('Razorpay Order Error:', error);

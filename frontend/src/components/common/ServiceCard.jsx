@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import axios from '../../api/axios';
+import { BASE_URL } from '../../utils/constants';
 
-const SERVER_URL = 'http://localhost:5000';
+const SERVER_URL = BASE_URL;
 
-const ServiceCard = ({ service, favorites = [] }) => {
+const ServiceCard = ({ service, favorites = [], isTrending = false }) => {
   const [isFavorite, setIsFavorite] = useState(false);
   const [imgError, setImgError] = useState(false);
 
@@ -31,27 +32,34 @@ const ServiceCard = ({ service, favorites = [] }) => {
       : '/placeholder-service.png';
 
   return (
-    <div className="bg-white rounded-[2rem] overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 group flex flex-col h-full border border-gray-100/50">
-      {/* IMAGE CONTAINER */}
-      <div className="relative h-56 overflow-hidden m-2 rounded-[1.5rem]">
+    <div className="bg-glass-surface backdrop-blur-md rounded-[3rem] overflow-hidden shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-[1.02] hover:bg-white/50 group flex flex-col h-full border border-glass-border shadow-slate-200/50">
+      {/* IMAGE CONTAINER - Floating Pill Shape */}
+      <div className="relative h-48 overflow-hidden m-4 rounded-[2.5rem] shadow-sm">
         <img
           src={imageUrl}
           alt={service.name}
           onError={() => setImgError(true)}
           className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
         />
-        {/* CATEGORY BADGE */}
-        <div className="absolute top-4 right-4 bg-white/95 backdrop-blur-sm text-[#1a2b4b] px-4 py-2 rounded-2xl text-xs font-bold shadow-lg border border-gray-100">
-          {service.category}
+        {/* BADGES - Top Right as per screenshot */}
+        <div className="absolute top-4 right-4 flex gap-2">
+          <div className="bg-white/95 backdrop-blur-sm text-azure-blue px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-md border border-slate-100">
+            {service.category}
+          </div>
+          {isTrending && (
+            <div className="bg-rose-500/90 backdrop-blur-sm text-white px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-lg shadow-rose-500/20 border border-white/20 animate-pulse">
+               ⚡ Trending
+            </div>
+          )}
         </div>
       </div>
 
-      <div className="p-8 flex flex-col flex-1">
-        <h3 className="text-2xl font-bold text-[#1a2b4b] mb-4 group-hover:text-[#d4a76d] transition-colors duration-300">
+      <div className="p-8 pt-2 flex flex-col flex-1">
+        <h3 className="text-2xl font-black text-deep-slate mb-3 group-hover:text-azure-blue transition-colors duration-300 tracking-tight">
           {service.name}
         </h3>
 
-        <p className="text-gray-500 text-sm mb-6 line-clamp-2 leading-relaxed">
+        <p className="text-muted-slate text-sm mb-6 line-clamp-2 leading-relaxed">
           {service.description}
         </p>
 
@@ -59,8 +67,8 @@ const ServiceCard = ({ service, favorites = [] }) => {
 
         <div className="mt-auto pt-4 border-t border-gray-50 flex items-end justify-between">
           <div className="flex flex-col text-left">
-            <span className="text-[11px] text-gray-400 uppercase font-extrabold tracking-widest mb-1">Starting from</span>
-            <span className="text-3xl font-black text-[#d4a76d] leading-none transition-all duration-300 group-hover:scale-110 origin-left">
+            <span className="text-[11px] text-muted-slate uppercase font-extrabold tracking-widest mb-1">Starting from</span>
+            <span className="text-3xl font-black text-azure-blue leading-none transition-all duration-300 group-hover:scale-110 origin-left">
               ₹{service.startingPrice || service.price}
             </span>
           </div>
@@ -81,11 +89,11 @@ const ServiceCard = ({ service, favorites = [] }) => {
 
             <Link
               to={`/user/booking/create/${service._id}`}
-              className="bg-[#2a2a2a] hover:bg-[#1a1a1a] text-white px-6 py-4 rounded-2xl font-bold flex items-center gap-2 transition-all duration-300 shadow-xl shadow-black/10 hover:shadow-black/20 transform hover:-translate-y-1"
+              className="bg-azure-blue hover:bg-blue-600 text-white px-6 py-4 rounded-2xl font-bold flex items-center gap-2 transition-all duration-300 shadow-lg shadow-blue-500/20 hover:shadow-blue-500/40 transform hover:-translate-y-1"
             >
               Book Now
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
               </svg>
             </Link>
           </div>

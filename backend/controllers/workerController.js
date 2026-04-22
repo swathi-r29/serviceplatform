@@ -9,6 +9,7 @@ const {
   notifyServiceInProgress
 } = require('../utils/notificationHelper');
 const { getServicePrice } = require('../utils/pricingHelper');
+const { calculateDistance } = require('../utils/locationHelper');
 
 const getWorkerProfile = async (req, res) => {
   try {
@@ -17,7 +18,7 @@ const getWorkerProfile = async (req, res) => {
 
     // 🔄 HYBRID MIGRATION: Convert legacy "skills" to new "skillRates"
     let healed = false;
-    
+
     // Fallback: If skills[] exists but skillRates[] is empty, migrate it
     if (worker.skills && worker.skills.length > 0 && (!worker.skillRates || worker.skillRates.length === 0)) {
       healed = true;
@@ -97,8 +98,8 @@ const updateWorkerProfile = async (req, res) => {
     // Handle coordinates
     if (req.body.coordinates) {
       try {
-        const parsedCoords = typeof req.body.coordinates === 'string' 
-          ? JSON.parse(req.body.coordinates) 
+        const parsedCoords = typeof req.body.coordinates === 'string'
+          ? JSON.parse(req.body.coordinates)
           : req.body.coordinates;
         updateData.coordinates = parsedCoords;
       } catch (e) {
@@ -388,20 +389,53 @@ const getWorkerEarnings = async (req, res) => {
 const getWorkersByCategory = async (req, res) => {
   try {
     const { category } = req.params;
+    const { lat, lng, radius = 50 } = req.query;
     console.log(`🔍 Searching for workers in category: "${category}"`);
 
-    // Use a more relaxed regex for matching (case-insensitive, partial match)
-    // Escaping special characters in category would be ideal but for now simple regex
+    // 🚀 RESTORED HYBRID QUERY: Match in both legacy "skills" AND modern "skillRates.skillName"
     const workers = await User.find({
       role: 'worker',
       status: 'approved',
-      skills: { $regex: new RegExp(category, 'i') }
+      $or: [
+        { skills: { $regex: new RegExp(category, 'i') } },
+        { 'skillRates.skillName': { $regex: new RegExp(category, 'i') } }
+      ]
     }).select('-password');
 
-    console.log(`✅ Found ${workers.length} workers for "${category}"`);
+    console.log(`✅ Found ${workers.length} workers for "${category}" before filtering`);
+
+    // 🚀 Radius filtering: Only return workers within the specified distance
+    let filteredWorkers = workers;
+    if (lat && lng) {
+      const userLat = parseFloat(lat);
+      const userLng = parseFloat(lng);
+      const searchRadius = parseFloat(radius);
+
+      if (!isNaN(userLat) && !isNaN(userLng)) {
+        filteredWorkers = workers.filter(worker => {
+          const wLat = worker.coordinates?.lat || worker.coordinates?.latitude;
+          const wLng = worker.coordinates?.lng || worker.coordinates?.longitude;
+
+          if (!wLat || !wLng) {
+            console.log(`⚠️  Worker ${worker.name} skipped: Missing coordinates`);
+            return false;
+          }
+
+          const distance = calculateDistance(
+            userLat, userLng,
+            wLat, wLng
+          );
+
+          const isNearby = distance !== null && distance <= searchRadius;
+          if (!isNearby) console.log(`📏 Worker ${worker.name} too far: ${distance}km`);
+          return isNearby;
+        });
+        console.log(`📍 Radius Filtering: Returning ${filteredWorkers.length} workers within ${searchRadius}km`);
+      }
+    }
 
     // 🚀 Senior Refactor: Compute authoritative price for each worker
-    const workersWithPricing = workers.map(w => {
+    const workersWithPricing = filteredWorkers.map(w => {
       const pricing = getServicePrice(w, category, null, 0);
       return {
         ...w.toObject(),

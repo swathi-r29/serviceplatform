@@ -113,8 +113,8 @@ const AddService = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#fdfaf5] py-12 px-4 sm:px-6 lg:px-8 font-sans">
-      <div className="max-w-3xl mx-auto">
+    <div className="space-y-8 p-4 md:p-8">
+      <div className="w-full max-w-4xl mx-auto">
         {/* Header Section */}
         <div className="text-center mb-10">
           <h1 className="text-4xl md:text-5xl font-serif font-black text-[#1a1a1a] mb-3 tracking-tight">

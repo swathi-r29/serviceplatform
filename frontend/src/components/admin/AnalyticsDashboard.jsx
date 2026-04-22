@@ -138,7 +138,7 @@ const AnalyticsDashboard = () => {
   const pieData = processCategories();
 
   return (
-    <div className="p-4 md:p-8 bg-[#f8fafc] min-h-screen font-lato">
+    <div className="space-y-8 p-4 md:p-8 font-lato">
       <div className="flex justify-between items-center mb-8">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold text-gray-900 font-playfair">Platform Analytics</h1>
@@ -323,7 +323,20 @@ const AnalyticsDashboard = () => {
                       <td className="py-3">
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 rounded-full bg-gray-200 overflow-hidden flex-shrink-0 flex items-center justify-center text-gray-500 text-xs font-bold font-playfair bg-gradient-to-br from-blue-100 to-indigo-100">
-                            {worker.profileImage ? <img src={worker.profileImage} alt="" className="w-full h-full object-cover" /> : worker.name.charAt(0)}
+                            {worker.profileImage ? (
+                              <img 
+                                src={`http://localhost:5000${worker.profileImage}`} 
+                                alt="" 
+                                className="w-full h-full object-cover" 
+                                onError={(e) => {
+                                  e.target.onerror = null;
+                                  e.target.style.display = 'none';
+                                  e.target.parentElement.innerHTML = worker.name.charAt(0);
+                                }}
+                              />
+                            ) : (
+                              worker.name.charAt(0)
+                            )}
                           </div>
                           <div>
                             <p className="text-sm font-bold text-gray-900 line-clamp-1">{worker.name}</p>

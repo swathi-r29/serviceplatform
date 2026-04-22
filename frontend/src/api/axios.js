@@ -1,7 +1,9 @@
 import axios from 'axios';
 
 const instance = axios.create({
-  baseURL: 'https://servicehub-nbgj.onrender.com/api'
+  baseURL: window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    ? 'http://localhost:5000/api'
+    : 'https://servicehub-nbgj.onrender.com/api'
 });
 
 instance.interceptors.request.use(

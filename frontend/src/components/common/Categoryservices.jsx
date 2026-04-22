@@ -1,25 +1,48 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useContext } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { FaThLarge, FaMapMarkedAlt, FaChevronLeft } from 'react-icons/fa';
 import axios from '../../api/axios';
+import ServiceCard from './ServiceCard';
 import ServiceMapView from '../user/ServiceMapView';
 import SmartSearchBar from '../user/SmartSearchBar';
+import { AuthContext } from '../../context/AuthContext';
 
 const SERVER_URL = 'http://localhost:5000';
 
 const CategoryServices = () => {
+  const { user } = useContext(AuthContext);
   const { categoryName } = useParams();
-   const [services, setServices] = useState([]);
-   const [providers, setProviders] = useState([]);
-   const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'map'
-   const [loading, setLoading] = useState(true);
-   const [error, setError] = useState('');
+  const [services, setServices] = useState([]);
+  const [providers, setProviders] = useState([]);
+  const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'map'
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [favorites, setFavorites] = useState([]);
+  const [userLocation, setUserLocation] = useState(null);
+
+  useEffect(() => {
+    // 🌍 Get user location for "Nearby" filtering
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const coords = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude
+          };
+          setUserLocation(coords);
+          console.log('🌍 User location captured:', coords);
+        },
+        (error) => {
+          console.warn('🌍 Location access denied or failed:', error.message);
+        }
+      );
+    }
+  }, []);
 
   useEffect(() => {
     console.log('CategoryServices component mounted');
-    console.log('Category from URL params:', categoryName);
     fetchCategoryServices();
-  }, [categoryName]);
+  }, [categoryName, userLocation]);
 
   const fetchCategoryServices = async () => {
     try {
@@ -28,14 +51,29 @@ const CategoryServices = () => {
 
       // 1. Fetch services
       const { data: allServices } = await axios.get('/services');
-      const filteredServices = allServices.filter(service => 
+      const filteredServices = allServices.filter(service =>
         service.category?.toLowerCase() === categoryName.toLowerCase()
       );
       setServices(filteredServices);
 
-      // 2. Fetch providers (workers) for the map
-      const { data: categoryWorkers } = await axios.get(`/services/workers/${categoryName}`);
+      // 2. Fetch providers (workers) for the map with optional radius filtering
+      let workersUrl = `/services/workers/${categoryName}`;
+      if (userLocation) {
+        workersUrl += `?lat=${userLocation.lat}&lng=${userLocation.lng}&radius=50`;
+      }
+      
+      const { data: categoryWorkers } = await axios.get(workersUrl);
       setProviders(categoryWorkers);
+
+      // 3. Fetch favorites (only for users)
+      if (user?.role === 'user') {
+        try {
+          const { data: userFavorites } = await axios.get('/favorites');
+          setFavorites(userFavorites);
+        } catch (favErr) {
+          console.warn('Could not load favorites:', favErr.message);
+        }
+      }
 
     } catch (err) {
       console.error('Error fetching services:', err);
@@ -63,11 +101,11 @@ const CategoryServices = () => {
         <div className="services-container">
           {/* Smart Search Bar */}
           <div className="mb-8">
-            <SmartSearchBar 
+            <SmartSearchBar
               onResultsFound={(results, params) => {
                 setServices(results);
                 // We could also pre-fill form data if we navigate to booking
-              }} 
+              }}
             />
           </div>
 
@@ -86,13 +124,13 @@ const CategoryServices = () => {
 
               {/* View Toggle */}
               <div className="view-toggle-container">
-                <button 
+                <button
                   onClick={() => setViewMode('grid')}
                   className={`toggle-btn ${viewMode === 'grid' ? 'active' : ''}`}
                 >
                   <FaThLarge /> Grid
                 </button>
-                <button 
+                <button
                   onClick={() => setViewMode('map')}
                   className={`toggle-btn ${viewMode === 'map' ? 'active' : ''}`}
                 >
@@ -125,73 +163,30 @@ const CategoryServices = () => {
           {!loading && !error && services.length > 0 && (
             <div className="view-content mt-8">
               {viewMode === 'grid' ? (
-                <div className="services-grid">
+                <div className="services-grid pt-4">
                   {services.map(service => (
-                    <div key={service._id} className="service-card">
-                      <div className="service-image-container">
-                        <img
-                          src={service.image ? `${SERVER_URL}${service.image}` : 'https://via.placeholder.com/400x300?text=Service+Image'}
-                          alt={service.name}
-                          className="service-image"
-                          onError={(e) => {
-                            e.target.src = 'https://via.placeholder.com/400x300?text=Service+Image';
-                          }}
-                        />
-                        <div className="category-badge">{service.category}</div>
-                      </div>
-
-                      <div className="service-content">
-                        <h2 className="service-name">{service.name}</h2>
-
-                        {service.description && (
-                          <p className="service-description">
-                            {service.description.length > 120
-                              ? `${service.description.substring(0, 120)}...`
-                              : service.description}
-                          </p>
-                        )}
-
-                        {service.location && (
-                          <div className="service-location">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-                              <circle cx="12" cy="10" r="3" />
-                            </svg>
-                            <span>{service.location}</span>
-                          </div>
-                        )}
-
-                        <div className="service-footer">
-                          <div className="price-section">
-                            <span className="price-label">Starting from</span>
-                            <span className="price">₹{service.price}</span>
-                          </div>
-
-                          <Link
-                            to={`/user/booking/create/${service._id}`}
-                            className="book-button"
-                          >
-                            Book Now
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <path d="M5 12h14M12 5l7 7-7 7" />
-                            </svg>
-                          </Link>
-                        </div>
-                      </div>
-                    </div>
+                    <ServiceCard
+                      key={service._id}
+                      service={service}
+                      favorites={favorites}
+                    />
                   ))}
                 </div>
               ) : (
                 <div className="map-view-wrapper animate-in bg-white p-4 rounded-3xl shadow-xl border border-gray-100">
                   <div className="mb-4 px-2 flex items-center justify-between">
                     <h3 className="font-bold text-gray-700 flex items-center gap-2">
-                       <FaMapMarkedAlt className="text-blue-600" /> Interactive Provider Map
+                       <FaMapMarkedAlt className="text-orange-600" /> Professionals in Your Area
                     </h3>
                     <span className="text-xs text-gray-400 bg-gray-50 px-3 py-1 rounded-full border border-gray-100">
-                      Showing approved professionals in {categoryName}
+                      {userLocation ? 'Filtered by distance (50km)' : 'Showing all professionals'} in {categoryName}
                     </span>
                   </div>
-                  <ServiceMapView providers={providers} />
+                  <ServiceMapView 
+                    providers={providers} 
+                    center={userLocation ? [userLocation.lat, userLocation.lng] : [12.9716, 77.5946]} 
+                    radius={50} 
+                  />
                 </div>
               )}
             </div>
@@ -246,7 +241,7 @@ const mainStyles = `
 
   .category-services-page {
     min-height: 100vh;
-    background: #faf8f5;
+    background: linear-gradient(135deg, #fafafa 0%, #f0f4f8 100%);
     padding: 2rem;
     font-family: 'Lato', sans-serif;
   }

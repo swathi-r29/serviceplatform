@@ -1,4 +1,4 @@
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMap, Circle } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { FaStar, FaPhoneAlt, FaMapMarkerAlt, FaToolbox } from 'react-icons/fa';
@@ -26,11 +26,20 @@ const ChangeView = ({ center }) => {
   return null;
 };
 
-const ServiceMapView = ({ providers, center = [12.9716, 77.5946] }) => {
+const ServiceMapView = ({ providers, center = [12.9716, 77.5946], radius = 50 }) => {
   const navigate = useNavigate();
 
   // Filter providers that have coordinates
   const validProviders = providers.filter(p => p.coordinates && p.coordinates.lat && p.coordinates.lng);
+
+  const maskAddress = (address) => {
+    if (!address) return 'Local Provider';
+    const parts = address.split(',');
+    if (parts.length > 2) {
+      return parts.slice(-3).map(p => p.trim()).join(', ');
+    }
+    return address;
+  };
 
   return (
     <div className="h-[600px] w-full rounded-3xl overflow-hidden shadow-2xl border-4 border-white relative z-0 group">
@@ -46,6 +55,21 @@ const ServiceMapView = ({ providers, center = [12.9716, 77.5946] }) => {
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         <ChangeView center={center} />
+        
+        {/* 🛡️ Serviceable Area Circle */}
+        {center && (
+          <Circle 
+            center={center} 
+            radius={radius * 1000} 
+            pathOptions={{ 
+              fillColor: '#e67e22', 
+              fillOpacity: 0.1, 
+              color: '#e67e22', 
+              weight: 1,
+              dashArray: '5, 10'
+            }} 
+          />
+        )}
         
         {validProviders.map((provider) => (
           <Marker 
@@ -66,7 +90,7 @@ const ServiceMapView = ({ providers, center = [12.9716, 77.5946] }) => {
                   <div>
                     <h3 className="font-bold text-gray-900 leading-tight">{provider.name}</h3>
                     <p className="text-[10px] text-gray-400 flex items-center gap-1 font-medium italic">
-                        <FaMapMarkerAlt size={8} /> {provider.location || 'Local Provider'}
+                        <FaMapMarkerAlt size={8} /> {maskAddress(provider.location)}
                     </p>
                   </div>
                 </div>
@@ -96,13 +120,21 @@ const ServiceMapView = ({ providers, center = [12.9716, 77.5946] }) => {
       </MapContainer>
 
       <style jsx="true">{`
-        .custom-popup .leaflet-popup-content-wrapper {
-          border-radius: 16px;
-          padding: 4px;
-          box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+        .leaflet-popup-content-wrapper {
+          background: rgba(255, 255, 255, 0.45) !important;
+          backdrop-filter: blur(12px) !important;
+          -webkit-backdrop-filter: blur(12px) !important;
+          border: 1px solid rgba(255, 255, 255, 0.3) !important;
+          border-radius: 20px !important;
+          box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.1) !important;
         }
-        .custom-popup .leaflet-popup-tip {
-          background: white;
+        .leaflet-popup-tip {
+          background: rgba(255, 255, 255, 0.45) !important;
+          backdrop-filter: blur(12px) !important;
+          border-top: 1px solid rgba(255, 255, 255, 0.2) !important;
+        }
+        .custom-popup .leaflet-popup-content {
+          margin: 12px 16px;
         }
       `}</style>
     </div>

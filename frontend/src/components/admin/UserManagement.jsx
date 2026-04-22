@@ -74,8 +74,8 @@ const UserManagement = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 px-4 py-8">
-      <div className="max-w-7xl mx-auto">
+    <div className="space-y-8 p-4 md:p-8">
+      <div className="w-full">
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">User Management</h1>
@@ -191,8 +191,8 @@ const UserManagement = () => {
             Showing {filteredUsers.length} of {users.length} users
           </div>
         )}
+        </div>
       </div>
-    </div>
   );
 };
 

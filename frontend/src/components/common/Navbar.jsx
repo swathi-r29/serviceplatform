@@ -46,6 +46,7 @@ const Navbar = () => {
 
               {user && user.role === 'user' && (
                 <>
+                  <Link to="/services" className="nav-link">Services</Link>
                   <Link to="/user/dashboard" className="nav-link">Dashboard</Link>
                   <Link to="/user/bookings" className="nav-link">My Bookings</Link>
                   <Link to="/user/favorites" className="nav-link">Favorites</Link>
@@ -139,6 +140,9 @@ const Navbar = () => {
 
             {user && user.role === 'user' && (
               <>
+                <Link to="/services" className="mobile-link" onClick={() => setIsMenuOpen(false)}>
+                  Services
+                </Link>
                 <Link to="/user/dashboard" className="mobile-link" onClick={() => setIsMenuOpen(false)}>
                   Dashboard
                 </Link>

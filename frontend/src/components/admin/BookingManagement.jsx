@@ -29,7 +29,8 @@ const BookingManagement = () => {
   if (loading) return <div className="flex justify-center items-center min-h-screen">Loading...</div>;
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="space-y-8 p-4 md:p-8">
+      <div className="w-full">
       <h1 className="text-3xl font-bold mb-8">Booking Management</h1>
 
       <div className="mb-6">
@@ -118,6 +119,7 @@ const BookingManagement = () => {
         {filteredBookings.length === 0 && (
           <div className="text-center py-8 text-gray-500">No bookings found</div>
         )}
+        </div>
       </div>
     </div>
   );

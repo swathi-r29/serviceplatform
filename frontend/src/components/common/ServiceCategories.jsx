@@ -12,7 +12,7 @@ const ServiceCategories = () => {
     'InstaHelp': { icon: '⚡', badge: 'NEW', helpText: 'Help in 10 mins', color: 'bg-green-50', iconBg: 'bg-green-100' },
     'Beauty': { icon: '💆‍♀️', color: 'bg-pink-50', iconBg: 'bg-pink-100' },
     'Cleaning': { icon: '🧹', color: 'bg-orange-50', iconBg: 'bg-orange-100' },
-    'Electrical': { icon: '🔧', color: 'bg-yellow-50', iconBg: 'bg-yellow-100' },
+    'Electrical': { icon: '🔌', color: 'bg-yellow-50', iconBg: 'bg-yellow-100' },
     'Plumbing': { icon: '🔧', color: 'bg-blue-50', iconBg: 'bg-blue-100' },
     'Water': { icon: '💧', color: 'bg-cyan-50', iconBg: 'bg-cyan-100' },
     'Painting': { icon: '🎨', color: 'bg-purple-50', iconBg: 'bg-purple-100' },

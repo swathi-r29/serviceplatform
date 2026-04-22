@@ -42,6 +42,11 @@ module.exports = {
         },
         'provider-brown': '#b67a29',
         'theme-bg': 'rgb(249, 244, 238)',
+        'glass-surface': 'rgba(255, 255, 255, 0.45)',
+        'glass-border': 'rgba(255, 255, 255, 0.3)',
+        'azure-blue': '#3B82F6',
+        'deep-slate': '#0F172A',
+        'muted-slate': '#475569',
       },
       fontFamily: {
         'lato': ['Lato', 'sans-serif'],

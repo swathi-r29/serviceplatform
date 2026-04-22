@@ -327,7 +327,8 @@ exports.predictFairPrice = async (req, res) => {
                 pricingType: pricing.pricingType,
                 rateType: rateType || 'fixed'
             };
-        }).sort((a, b) => a.total - b.total).slice(0, 2);
+        }).filter(p => p.distanceKm !== null && p.distanceKm <= 50)
+          .sort((a, b) => a.total - b.total).slice(0, 2);
 
         // --- Deterministic scoring (pure, no DB) ---
         const scoredProviders = providerData.map(p => {

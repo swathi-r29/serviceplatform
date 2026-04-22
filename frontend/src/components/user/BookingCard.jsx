@@ -15,7 +15,6 @@ const BookingCard = ({ booking, onCancel, onRefresh }) => {
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [showReceipt, setShowReceipt] = useState(false);
   const { startStream, callUser, setIsCallModalOpen } = useWebRTC();
-  const [isFavoriteWorker, setIsFavoriteWorker] = useState(false);
 
   // Decode userId from JWT stored in localStorage for socket auth
   const userId = (() => {
@@ -33,18 +32,6 @@ const BookingCard = ({ booking, onCancel, onRefresh }) => {
     completed: 'bg-green-100 text-green-800',
     rejected: 'bg-red-100 text-red-800',
     cancelled: 'bg-gray-100 text-gray-800'
-  };
-
-  const toggleFavoriteWorker = async () => {
-    if (!booking.worker?._id) return;
-    try {
-      await axios.put(`/favorites/worker/${booking.worker._id}`);
-      setIsFavoriteWorker(!isFavoriteWorker); // Simple toggle for UI feedback
-      // onRefresh(); // Optional: refresh if we want global state update
-      alert(isFavoriteWorker ? 'Removed from favorites' : 'Added to favorites');
-    } catch (error) {
-      alert(error.response?.data?.message || 'Failed to update favorite');
-    }
   };
 
   // Helper to construct image URL
@@ -77,7 +64,6 @@ const BookingCard = ({ booking, onCancel, onRefresh }) => {
               </svg>
             </div>
           )}
-          {/* Status Badge Overlay (Mobile only or keep it clean?) - Let's put it in content */}
         </div>
 
         {/* Middle: Content */}
@@ -110,15 +96,6 @@ const BookingCard = ({ booking, onCancel, onRefresh }) => {
                 <span className="font-semibold text-gray-900 whitespace-nowrap overflow-hidden text-ellipsis" title={booking.worker?.name}>
                   {booking.worker?.name || "Pending Assignment"}
                 </span>
-                {booking.worker && (
-                  <button
-                    onClick={toggleFavoriteWorker}
-                    className="text-gray-400 hover:text-red-500 transition-colors flex-shrink-0 ml-1"
-                    title={isFavoriteWorker ? "Remove from favorites" : "Add to favorites"}
-                  >
-                    {isFavoriteWorker ? <FaHeart className="text-red-500 shrink-0" /> : <FaRegHeart className="shrink-0" />}
-                  </button>
-                )}
               </div>
             </div>
             {booking.worker?.rating !== undefined && (
@@ -243,8 +220,6 @@ const BookingCard = ({ booking, onCancel, onRefresh }) => {
             </button>
           )}
 
-
-
           {(booking.status !== 'pending' && booking.status !== 'accepted' && booking.status !== 'completed' && booking.status !== 'cancelled') && (
             <button className="w-full px-5 py-2.5 mt-2 bg-gray-100 text-gray-400 text-sm font-medium rounded-lg cursor-not-allowed uppercase">
               {booking.status}
@@ -293,4 +268,4 @@ const BookingCard = ({ booking, onCancel, onRefresh }) => {
   );
 };
 
-export default BookingCard;
+export default BookingCard;

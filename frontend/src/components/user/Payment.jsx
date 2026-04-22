@@ -39,6 +39,25 @@ const Payment = ({ booking, onClose, onSuccess }) => {
         name: 'ServiceHub',
         description: `Payment for ${booking.service?.name}`,
         order_id: orderData.orderId,
+        config: {
+          display: {
+            blocks: {
+              upi: {
+                name: 'UPI ID / QR',
+                instruments: [
+                  {
+                    method: 'vpa'
+                  },
+                  {
+                    method: 'upi'
+                  }
+                ],
+              },
+            },
+            sequence: ['block.upi'],
+            preferences: { show_default_blocks: true },
+          },
+        },
         handler: async function (response) {
           try {
             await axios.post('/payment/verify', {
@@ -55,7 +74,8 @@ const Payment = ({ booking, onClose, onSuccess }) => {
         prefill: {
           name: booking.user?.name,
           email: booking.user?.email,
-          contact: booking.user?.phone
+          contact: booking.user?.phone,
+          vpa: 'success@razorpay'
         },
         theme: {
           color: '#2563eb'
@@ -63,9 +83,15 @@ const Payment = ({ booking, onClose, onSuccess }) => {
       };
 
       const paymentObject = new window.Razorpay(options);
+      paymentObject.on('payment.failed', function (response) {
+        console.error('❌ Razorpay Payment Failed:', response.error);
+        setError(`Payment failed: ${response.error.description}`);
+        setLoading(false);
+      });
       paymentObject.open();
       setLoading(false);
     } catch (err) {
+      console.error('❌ Razorpay Initialization Error:', err);
       setError(err.response?.data?.message || 'Payment failed');
       setLoading(false);
     }
