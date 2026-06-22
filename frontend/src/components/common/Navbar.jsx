@@ -8,6 +8,8 @@ const Navbar = () => {
   const { user, logout } = useContext(AuthContext);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [cartCount, setCartCount] = useState(0);
+  const [prevCount, setPrevCount] = useState(0);
+  const [animateBadge, setAnimateBadge] = useState(false);
 
   useEffect(() => {
     if (user && user.role === 'user') {
@@ -20,8 +22,31 @@ const Navbar = () => {
         }
       };
       fetchCartCount();
+
+      const handleCartUpdate = (e) => {
+        const count = e.detail?.count;
+        if (typeof count === 'number') {
+          setCartCount(count);
+        } else {
+          fetchCartCount();
+        }
+      };
+
+      window.addEventListener('cart-updated', handleCartUpdate);
+      return () => window.removeEventListener('cart-updated', handleCartUpdate);
     }
   }, [user]);
+
+  useEffect(() => {
+    if (cartCount !== prevCount) {
+      setAnimateBadge(true);
+      const timer = setTimeout(() => {
+        setAnimateBadge(false);
+      }, 300);
+      setPrevCount(cartCount);
+      return () => clearTimeout(timer);
+    }
+  }, [cartCount, prevCount]);
 
   return (
     <>
@@ -51,11 +76,13 @@ const Navbar = () => {
                   <Link to="/user/bookings" className="nav-link">My Bookings</Link>
                   <Link to="/user/favorites" className="nav-link">Favorites</Link>
                   <Link to="/user/profile" className="nav-link">Profile</Link>
-                  <Link to="/user/cart" className="nav-link flex items-center gap-1">
+                  <Link to="/user/cart" className={`nav-link flex items-center gap-1 ${animateBadge ? 'cart-badge-pop' : ''}`}>
                     Cart
                     {cartCount > 0 && (
-                      <span className="bg-orange-500 text-white text-[10px] px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
-                        {cartCount}
+                      <span className="bg-orange-500 text-white text-[10px] px-1.5 py-0.5 rounded-full min-w-[18px] text-center font-bold relative overflow-hidden inline-flex justify-center items-center h-[18px]">
+                        <span key={cartCount} className={animateBadge ? 'cart-count-flip' : ''}>
+                          {cartCount}
+                        </span>
                       </span>
                     )}
                   </Link>
@@ -203,6 +230,26 @@ const Navbar = () => {
 
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,600&family=Lato:wght@300;400;500&display=swap');
+
+        @keyframes popBadge {
+          0% { transform: scale(1); }
+          50% { transform: scale(1.15); }
+          100% { transform: scale(1); }
+        }
+
+        @keyframes flipDigit {
+          0% { transform: translateY(100%); opacity: 0; }
+          100% { transform: translateY(0); opacity: 1; }
+        }
+
+        .cart-badge-pop {
+          animation: popBadge 0.3s ease-out;
+        }
+
+        .cart-count-flip {
+          display: inline-block;
+          animation: flipDigit 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
 
         .navbar {
           background: #1a1a1a;

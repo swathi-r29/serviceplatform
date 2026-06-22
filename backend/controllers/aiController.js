@@ -283,22 +283,28 @@ exports.predictFairPrice = async (req, res) => {
             providers = await User.find({ 
                 role: 'worker',
                 status: 'approved',
-                skills: { $regex: new RegExp(service.category, 'i') }
+                $or: [
+                    { skills: { $regex: new RegExp(service.category, 'i') } },
+                    { 'skillRates.skillName': { $regex: new RegExp(service.category, 'i') } }
+                ]
             });
             console.log(`🔎 CATEGORY RESULTS: ${providers.length}`);
         }
 
         // --- Build providerData with raw distanceKm for scoring ---
         const providerData = providers.map(p => {
-            const distanceKm = calculateDistance(
-                userCoords?.lat, userCoords?.lng,
-                p.coordinates?.lat, p.coordinates?.lng
-            );
+            const wCoords = p.coordinates || p;
+            const wLat = wCoords.lat ?? wCoords.latitude;
+            const wLng = wCoords.lng ?? wCoords.longitude;
+            const uLat = userCoords?.lat ?? userCoords?.latitude;
+            const uLng = userCoords?.lng ?? userCoords?.longitude;
+
+            const distanceKm = calculateDistance(uLat, uLng, wLat, wLng);
 
             // 🔍 LIVE GPS AUDIT
             console.log(`\n📡 --- GPS AUDIT: ${p.name} ---`);
-            console.log(`📍 USER PIN:    Lat: ${userCoords?.lat}, Lng: ${userCoords?.lng}`);
-            console.log(`📍 PRO BASE:    Lat: ${p.coordinates?.lat}, Lng: ${p.coordinates?.lng}`);
+            console.log(`📍 USER PIN:    Lat: ${uLat}, Lng: ${uLng}`);
+            console.log(`📍 PRO BASE:    Lat: ${wLat}, Lng: ${wLng}`);
             console.log(`📏 CALC DIST:   ${distanceKm} km`);
             console.log('------------------------------------\n');
 

@@ -34,6 +34,38 @@ const LifecycleTimeline = ({ history, currentStatus }) => {
 
   return (
     <div className="w-full py-6">
+      <style>{`
+        @keyframes statusPulse {
+          0% {
+            transform: scale(1);
+            opacity: 0.8;
+          }
+          100% {
+            transform: scale(1.8);
+            opacity: 0;
+          }
+        }
+
+        @keyframes staggeredTimelineFade {
+          from {
+            opacity: 0;
+            transform: translateY(12px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        .animate-status-pulse {
+          animation: statusPulse 2s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+        }
+
+        .timeline-node {
+          animation: staggeredTimelineFade 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+      `}</style>
+      
       <div className="relative flex justify-between">
         {/* Connection Lines */}
         <div className="absolute top-1/2 left-0 w-full h-0.5 bg-gray-200 -translate-y-1/2 z-0" />
@@ -48,23 +80,33 @@ const LifecycleTimeline = ({ history, currentStatus }) => {
           const isCurrent = index === currentIndex;
 
           return (
-            <div key={step.status} className="relative z-10 flex flex-col items-center">
+            <div 
+              key={step.status} 
+              className="relative z-10 flex flex-col items-center timeline-node"
+              style={{
+                animationDelay: `${index * 100}ms`,
+                opacity: 0
+              }}
+            >
               <div 
-                className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all duration-300 ${
+                className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all duration-300 relative ${
                   isCompleted 
                     ? 'bg-blue-600 border-blue-600 text-white' 
                     : 'bg-white border-gray-300 text-gray-400'
                 } ${isCurrent ? 'ring-4 ring-blue-100' : ''}`}
               >
-                <StepIcon size={20} />
+                <StepIcon size={20} className="relative z-10" />
+                {isCurrent && (
+                  <div className="absolute inset-0 rounded-full bg-blue-400 animate-status-pulse z-0 pointer-events-none" />
+                )}
               </div>
-              <span className={`mt-2 text-xs font-medium ${
-                isCompleted ? 'text-blue-600' : 'text-gray-400'
+              <span className={`mt-2 text-xs font-semibold ${
+                isCompleted ? 'text-blue-600 font-bold' : 'text-gray-400'
               }`}>
                 {step.label}
               </span>
               {history && history.find(h => h.status === step.status) && (
-                <span className="text-[10px] text-gray-400 mt-1">
+                <span className="text-[10px] text-gray-400 mt-1 font-mono">
                   {new Date(history.find(h => h.status === step.status).timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </span>
               )}

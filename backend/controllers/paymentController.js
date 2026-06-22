@@ -1,6 +1,7 @@
 const Razorpay = require('razorpay');
 const crypto = require('crypto');
 const Booking = require('../models/Booking');
+const { sendPaymentSuccessEmail } = require('../utils/mailHelper');
 
 const razorpay = process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET 
   ? new Razorpay({
@@ -106,7 +107,7 @@ const verifyPayment = async (req, res) => {
       .digest('hex');
 
     if (razorpay_signature === expectedSign) {
-      const booking = await Booking.findById(bookingId);
+      const booking = await Booking.findById(bookingId).populate('user service');
       if (!booking) {
         return res.status(404).json({ message: 'Booking not found' });
       }
@@ -124,6 +125,15 @@ const verifyPayment = async (req, res) => {
       }
       
       await booking.save();
+
+      // 📧 Send Payment Success Email
+      await sendPaymentSuccessEmail(
+        booking.user.email,
+        booking.user.name,
+        booking.service.name,
+        booking.totalAmount,
+        razorpay_payment_id
+      );
 
       res.json({ success: true, message: 'Payment verified successfully', booking });
     } else {
@@ -177,6 +187,7 @@ const verifyAndCreateBooking = async (req, res) => {
       scheduledDate,
       scheduledTime,
       address,
+      landmark,
       locationCoords,
       notes,
       totalAmount,
@@ -202,6 +213,7 @@ const verifyAndCreateBooking = async (req, res) => {
       scheduledDate,
       scheduledTime,
       address: address || '',
+      landmark: landmark || '',
       notes: notes || '',
       locationCoords: parsedCoords || undefined,
       totalAmount: Number(totalAmount) || 0,
@@ -218,6 +230,19 @@ const verifyAndCreateBooking = async (req, res) => {
     });
 
     console.log(`✅ Booking created post-payment: ${booking._id} | Payment: ${razorpay_payment_id}`);
+
+    // 📧 Send Payment Success Email
+    // Fetch populated booking for email details
+    const populatedBooking = await Booking.findById(booking._id).populate('user service');
+    if (populatedBooking) {
+      await sendPaymentSuccessEmail(
+        populatedBooking.user.email,
+        populatedBooking.user.name,
+        populatedBooking.service.name,
+        populatedBooking.totalAmount,
+        razorpay_payment_id
+      );
+    }
 
     return res.status(201).json({ success: true, bookingId: booking._id });
 

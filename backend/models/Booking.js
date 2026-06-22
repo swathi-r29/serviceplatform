@@ -27,6 +27,9 @@ const bookingSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  landmark: {
+    type: String
+  },
   status: {
     type: String,
     enum: ['pending', 'accepted', 'on-the-way', 'in-progress', 'completed', 'rejected', 'cancelled'],

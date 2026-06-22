@@ -32,6 +32,7 @@ import WorkerManagement from './components/admin/WorkerManagement';
 import BookingManagement from './components/admin/BookingManagement';
 import AnalyticsDashboard from './components/admin/AnalyticsDashboard';
 import AdminSettings from './components/admin/AdminSettings';
+import SupportManagement from './components/admin/SupportManagement';
 import NotFound from './pages/NotFound';
 import Support from './pages/Support';
 import HowItWorksPage from './pages/HowItWorks';
@@ -40,6 +41,7 @@ import Chat from './components/common/Chat';
 import Cart from './components/user/Cart';
 import Chatbot from './components/common/Chatbot';
 import { AssistantProvider } from './context/AssistantContext';
+import { Toaster } from 'react-hot-toast';
 
 import { WebRTCProvider, useWebRTC } from './context/WebRTCContext';
 import IncomingCallAlert from './components/common/IncomingCallAlert';
@@ -209,6 +211,7 @@ function AppContent() {
             <Route path="workers" element={<WorkerManagement />} />
             <Route path="bookings" element={<BookingManagement />} />
             <Route path="analytics" element={<AnalyticsDashboard />} />
+            <Route path="support" element={<SupportManagement />} />
             <Route path="settings" element={<AdminSettings />} />
           </Route>
 
@@ -216,6 +219,7 @@ function AppContent() {
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>
+      <Toaster position="top-center" reverseOrder={false} />
       <Chatbot />
       <IncomingCallAlert onAnswer={() => setIsCallModalOpen(true)} />
       <VideoCallModal isOpen={isCallModalOpen} onClose={() => setIsCallModalOpen(false)} />

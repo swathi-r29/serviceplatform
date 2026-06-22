@@ -44,6 +44,7 @@ module.exports = {
         'theme-bg': 'rgb(249, 244, 238)',
         'glass-surface': 'rgba(255, 255, 255, 0.45)',
         'glass-border': 'rgba(255, 255, 255, 0.3)',
+        'brand-azure': '#3B82F6',
         'azure-blue': '#3B82F6',
         'deep-slate': '#0F172A',
         'muted-slate': '#475569',

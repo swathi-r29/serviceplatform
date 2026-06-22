@@ -1,10 +1,10 @@
-import Hero from '../components/common/Hero';
+import ScrollAnimationHero from '../components/ScrollAnimationHero';
 import ServiceCategories from '../components/common/ServiceCategories';
 
 const Home = () => {
   return (
     <div>
-      <Hero />
+      <ScrollAnimationHero />
       <ServiceCategories />
     </div>
   );

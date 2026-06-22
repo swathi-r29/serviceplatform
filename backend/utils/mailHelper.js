@@ -217,10 +217,72 @@ const sendServiceCompletedEmail = async (userEmail, userName, serviceName, booki
   return await sendEmail({ email: userEmail, subject, message, html });
 };
 
+/**
+ * Notifies the user that their payment was successful.
+ */
+const sendPaymentSuccessEmail = async (userEmail, userName, serviceName, amount, transactionId) => {
+  const subject = 'Payment Successful - ServiceHub';
+  const message = `Confirmation of your payment of ₹${amount} for ${serviceName}.`;
+  const html = `
+    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 20px auto; border: 1px solid #e0d4c0; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
+      <div style="background-color: #3B82F6; padding: 30px 20px; text-align: center;">
+        <h1 style="color: white; margin: 0; font-size: 24px; letter-spacing: 1px;">Payment Confirmed</h1>
+      </div>
+      <div style="padding: 30px; color: #333; line-height: 1.6;">
+        <p style="font-size: 16px;">Hello <b>${userName}</b>,</p>
+        <p>Thank you for your payment. Your transaction has been successfully processed.</p>
+        
+        <div style="background-color: #f0f7ff; border-left: 4px solid #3B82F6; padding: 20px; margin: 25px 0; border-radius: 4px;">
+          <p style="margin: 0;"><strong>Service:</strong> ${serviceName}</p>
+          <p style="margin: 10px 0;"><strong>Amount Paid:</strong> ₹${amount}</p>
+          <p style="margin: 10px 0 0 0;"><strong>Transaction ID:</strong> ${transactionId}</p>
+        </div>
+
+        <p>Your booking is now fully confirmed. You can track your service status in your dashboard.</p>
+      </div>
+      <div style="background-color: #f9f9f9; padding: 20px; text-align: center; font-size: 12px; color: #999; border-top: 1px solid #eee;">
+        <p style="margin: 5px 0;">&copy; ${new Date().getFullYear()} ServiceHub. All rights reserved.</p>
+      </div>
+    </div>
+  `;
+
+  return await sendEmail({ email: userEmail, subject, message, html });
+};
+
+/**
+ * Notifies the user that their booking was rejected.
+ */
+const sendBookingRejectedEmail = async (userEmail, userName, workerName, serviceName) => {
+  const subject = 'Booking Status Update - ServiceHub';
+  const message = `Hi ${userName}, unfortunately ${workerName} is unable to accept your booking for ${serviceName} at this time.`;
+  const html = `
+    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 20px auto; border: 1px solid #fed7d7; border-radius: 12px; overflow: hidden;">
+      <div style="background-color: #e53e3e; padding: 20px; text-align: center;">
+        <h1 style="color: white; margin: 0; font-size: 20px;">Booking Update</h1>
+      </div>
+      <div style="padding: 30px; color: #333;">
+        <p>Hello <b>${userName}</b>,</p>
+        <p>We're writing to let you know that <b>${workerName}</b> is currently unable to fulfill your request for <b>${serviceName}</b>.</p>
+        <p>Don't worry! You can browse other available professionals in your area or try a different time slot.</p>
+        <div style="text-align: center; margin-top: 25px;">
+          <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/services" 
+             style="background-color: #3182ce; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">
+            Find Another Pro
+          </a>
+        </div>
+      </div>
+    </div>
+  `;
+
+  return await sendEmail({ email: userEmail, subject, message, html });
+};
+
 module.exports = { 
   sendOTP, 
   sendEmail, 
   sendNewBookingEmail, 
   sendBookingAcceptedEmail, 
+  sendBookingRejectedEmail,
+  sendPaymentSuccessEmail,
   sendServiceCompletedEmail 
 };

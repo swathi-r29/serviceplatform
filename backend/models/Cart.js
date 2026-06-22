@@ -28,6 +28,15 @@ const cartSchema = new mongoose.Schema({
         priceAtAddition: {
             type: Number,
             required: true
+        },
+        address: {
+            type: String
+        },
+        landmark: {
+            type: String
+        },
+        locationCoords: {
+            type: mongoose.Schema.Types.Mixed
         }
     }],
     totalAmount: {

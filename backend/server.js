@@ -285,6 +285,7 @@ app.use('/api/chatbot', require('./routes/chatbotRoutes'));
 app.use('/api/cart', require('./routes/cartRoutes')); // Added cartRoutes
 app.use('/api/ai', require('./routes/aiRoutes')); // Added AI routes (Gemini)
 app.use('/api/cancellation', require('./routes/cancellationRoutes'));
+app.use('/api/support', require('./routes/supportRoutes'));
 
 console.log('✅ All routes loaded successfully\n');
 

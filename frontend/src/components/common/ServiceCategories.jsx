@@ -154,8 +154,8 @@ const ServiceCategories = () => {
           background: white;
           border-radius: 16px;
           padding: 2rem 1.5rem;
-          box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
-          transition: all 0.3s ease;
+          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
+          transition: all 0.2s ease-in-out;
           display: flex;
           flex-direction: column;
           align-items: center;
@@ -166,8 +166,8 @@ const ServiceCategories = () => {
         }
 
         .category-card:hover {
-          transform: translateY(-8px);
-          box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
+          transform: scale(1.03) translateY(-4px);
+          box-shadow: 0 12px 20px -3px rgba(0, 0, 0, 0.12), 0 4px 8px -2px rgba(0, 0, 0, 0.06);
         }
 
         .badge-container {

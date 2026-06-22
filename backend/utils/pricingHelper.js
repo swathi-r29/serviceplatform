@@ -10,7 +10,11 @@
 const getServicePrice = (worker, selectedCategory, service, travelFee = 0) => {
     // 1. --- HIGHEST PRIORITY: Admin Assigned Price (Specific override for this worker-service) ---
     const assignedWorkerEntry = service?.workers?.find(
-        w => (w.worker?.toString() === worker._id?.toString() || w.worker === worker._id)
+        w => {
+            const wId = w.worker?._id ? w.worker._id.toString() : w.worker?.toString();
+            const workerIdStr = worker?._id ? worker._id.toString() : worker?.toString();
+            return wId === workerIdStr;
+        }
     );
     const assignedPrice = parseFloat(assignedWorkerEntry?.price);
 

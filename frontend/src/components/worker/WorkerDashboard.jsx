@@ -136,10 +136,10 @@ const WorkerDashboard = () => {
                        </div>
                        
                        <h3 className="text-xl font-black text-deep-slate mb-2">{booking.service?.name}</h3>
-                       <div className="space-y-1 mb-8">
-                          <p className="text-xs font-bold text-muted-slate flex items-center gap-2"><div className="w-1 h-1 bg-azure-blue rounded-full"></div> {booking.address}</p>
-                          <p className="text-xs font-bold text-deep-slate flex items-center gap-2 mt-2">Payout: ₹{booking.totalAmount}</p>
-                       </div>
+                        <div className="space-y-1 mb-8">
+                           <div className="text-xs font-bold text-muted-slate flex items-center gap-2"><div className="w-1 h-1 bg-azure-blue rounded-full"></div> {booking.address}</div>
+                           <p className="text-xs font-bold text-deep-slate flex items-center gap-2 mt-2">Payout: ₹{booking.totalAmount}</p>
+                        </div>
 
                        <div className="flex gap-2">
                           <button onClick={()=>handleAccept(booking._id)} className="flex-1 py-3 bg-azure-blue text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-blue-500/10 hover:scale-[1.02] transition-all">Accept</button>

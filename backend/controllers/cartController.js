@@ -62,7 +62,7 @@ exports.getCart = async (req, res) => {
 // Add to Cart
 exports.addToCart = async (req, res) => {
     try {
-        const { serviceId, workerId, scheduledDate, scheduledTime } = req.body;
+        const { serviceId, workerId, scheduledDate, scheduledTime, address, locationCoords, landmark } = req.body;
 
         const service = await Service.findById(serviceId);
         if (!service) return res.status(404).json({ message: 'Service not found' });
@@ -77,7 +77,10 @@ exports.addToCart = async (req, res) => {
             worker: workerId,
             scheduledDate,
             scheduledTime,
-            priceAtAddition: service.price
+            priceAtAddition: service.price,
+            address,
+            locationCoords,
+            landmark
         });
 
         await cart.save();
@@ -120,7 +123,8 @@ exports.checkout = async (req, res) => {
                 worker: item.worker,
                 scheduledDate: item.scheduledDate,
                 scheduledTime: item.scheduledTime,
-                address: req.body.address, // Address provided during checkout
+                address: item.address || req.body.address, // Use item specific or global
+                landmark: item.landmark || req.body.landmark,
                 totalAmount: item.priceAtAddition - discountPerItem,
                 notes: req.body.notes || '',
                 paymentMethod: req.body.paymentMethod || 'cash'

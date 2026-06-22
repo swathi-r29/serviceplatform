@@ -8,6 +8,10 @@ const {
   notifyWorkerOnTheWay,
   notifyServiceInProgress
 } = require('../utils/notificationHelper');
+const { 
+  sendBookingAcceptedEmail, 
+  sendBookingRejectedEmail 
+} = require('../utils/mailHelper');
 const { getServicePrice } = require('../utils/pricingHelper');
 const { calculateDistance } = require('../utils/locationHelper');
 
@@ -227,6 +231,15 @@ const acceptBooking = async (req, res) => {
       req.app.get('io')
     );
 
+    // 📧 Send Confirmation Email to User
+    await sendBookingAcceptedEmail(
+      booking.user.email,
+      booking.user.name,
+      req.user.name,
+      booking.service.name,
+      booking._id
+    );
+
     res.json(booking);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -257,6 +270,14 @@ const rejectBooking = async (req, res) => {
       req.user.name,
       booking.service.name,
       req.app.get('io')
+    );
+
+    // 📧 Send Rejection Email to User
+    await sendBookingRejectedEmail(
+      booking.user.email,
+      booking.user.name,
+      req.user.name,
+      booking.service.name
     );
 
     res.json(booking);
