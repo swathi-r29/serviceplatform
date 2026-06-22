@@ -1,0 +1,133 @@
+/* Isolated Scroll-driven Animation Stylesheet */
+
+.scroll-animation-container {
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  /* 700vh to 750vh scroll area to give enough vertical space for 240 frames */
+  height: 720vh; 
+  background-color: #0b0c10;
+  overflow: clip; /* Avoid scrollbar issues */
+}
+
+.sticky-canvas-wrapper {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1;
+  pointer-events: none;
+  opacity: 1;
+  transition: opacity 0.3s ease;
+}
+
+.sticky-canvas-wrapper.scrolled-past {
+  position: absolute;
+  top: auto;
+  bottom: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.scroll-animation-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Glassmorphism Overlays */
+.overlay-section {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0.95);
+  width: 90%;
+  max-width: 600px;
+  z-index: 10;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1), 
+              transform 0.8s cubic-bezier(0.16, 1, 0.3, 1), 
+              visibility 0.8s;
+}
+
+.overlay-section.active {
+  opacity: 1;
+  visibility: visible;
+  transform: translate(-50%, -50%) scale(1);
+  pointer-events: auto;
+}
+
+.glass-overlay {
+  background: rgba(15, 23, 42, 0.45); /* Darker overlay background for high contrast */
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 2rem;
+  padding: 3rem;
+  text-align: center;
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.6), 
+              inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.overlay-title {
+  font-family: 'Playfair Display', serif;
+  font-weight: 900;
+  font-size: 2.25rem;
+  line-height: 1.2;
+  background: linear-gradient(135deg, #ffffff 0%, #e9e5ff 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin: 0;
+  letter-spacing: -0.03em;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+}
+
+.overlay-desc {
+  font-family: 'Lato', sans-serif;
+  font-size: 1.05rem;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.9); /* Brighter description text for readability */
+  margin: 0;
+  font-weight: 500;
+  text-shadow: 0 1px 5px rgba(0, 0, 0, 0.3);
+}
+
+/* Specific spacing tweaks if needed per section */
+.overlay-section.s1 .glass-overlay {
+  border-color: rgba(147, 51, 234, 0.2); /* Soft purple border */
+  box-shadow: 0 30px 60px rgba(147, 51, 234, 0.1), 0 30px 60px rgba(0, 0, 0, 0.4);
+}
+
+.overlay-section.s2 .glass-overlay {
+  border-color: rgba(59, 130, 246, 0.2); /* Soft blue border */
+  box-shadow: 0 30px 60px rgba(59, 130, 246, 0.1), 0 30px 60px rgba(0, 0, 0, 0.4);
+}
+
+.overlay-section.s3 .glass-overlay {
+  border-color: rgba(168, 85, 247, 0.2); /* Soft violet border */
+  box-shadow: 0 30px 60px rgba(168, 85, 247, 0.1), 0 30px 60px rgba(0, 0, 0, 0.4);
+}
+
+/* Responsiveness */
+@media (max-width: 640px) {
+  .glass-overlay {
+    padding: 2rem 1.5rem;
+  }
+  .overlay-title {
+    font-size: 1.75rem;
+  }
+  .overlay-desc {
+    font-size: 0.9rem;
+  }
+}
